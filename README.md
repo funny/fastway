@@ -16,7 +16,7 @@
 1. 客户端发送 `{Packet Length = 8, Backend ID = N}` 的消息，用来显式关闭跟指定后端之间端虚拟连接
 2. 网关发送 `{Packet Length = 8, Backend ID = N}` 的消息，用来告知客户端某个**使用过的**后端节点失效
 3. 网关发送 `{Packet Length = 8, Backend ID = MAX(uint64)}` 的消息，用来进行检查客户端连接是否存活
-4. 客户端发送 `{Packet Length = 9, Backend ID = MAX(uint64)}` 的消息，用来回应网关的检查
+4. 客户端发送 `{Packet Length = 8, Backend ID = MAX(uint64)}` 的消息，用来回应网关的检查
 
 
 后端协议
