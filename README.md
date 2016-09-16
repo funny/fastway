@@ -72,6 +72,7 @@
 
 特殊约定：
 
++ `Packet Length` = `2 (Recv Num) + 4 (Server ID) + 2 (Conn ID) + len(Message)`
 + `Recv Num`为据上次消息到这次消息之间的差值，不是累计的总值。
 + `{Packet Length = 8}`的消息用来表示`Conn ID`失效。
 + `{Server ID = max(uint32), Conn ID = 0}`的消息用来进行存活检查，客户端收到此消息后应该立即回应。
@@ -116,6 +117,7 @@
 
 特殊约定：
 
++ `Packet Length` = `2 (Recv Num) + 4 (Client ID) + 2 (Conn ID) + len(Message)`
 + `Recv Num`为据上次消息到这次消息之间的差值，不是累计的总值。
 + `{Packet Length = 8}`的消息用来表示`Conn ID`无效。
 + `{Client ID = max(uint32), Conn ID = 0}`的消息用来进行存活检查，服务端收到此消息后应该立即回应相同的消息。
