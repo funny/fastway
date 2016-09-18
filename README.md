@@ -117,7 +117,7 @@
 
 ```
 +------------------------+----------------------+--------------------+------------------+---------+
-| Packet Length (4 byte) | Reconn Info (2 byte) | Server ID (4 byte) | Conn ID (2 byte) | Message |
+| Packet Length (4 byte) | Reconn Info (2 byte) | Client ID (4 byte) | Conn ID (2 byte) | Message |
 +------------------------+----------------------+--------------------+------------------+---------+
 ```
 
