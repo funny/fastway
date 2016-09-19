@@ -48,7 +48,7 @@
 特殊约定：
 
 + `Packet Length` = 4 (`Server ID`) + 2 (`Conn ID`) + len(`Message`)
-+ `Packet Length = 6`的消息用来表示`Conn ID`失效。
++ `Packet Length = 6`的消息用来关闭虚拟连接。
 + `Server ID = max(uint32)`并且`Conn ID = 0`的消息用来进行存活检查，客户端收到此消息后应该立即回应。
 
 服务端端协议
@@ -92,5 +92,5 @@
 特殊约定：
 
 + `Packet Length` = 4 (`Client ID`) + 2 (`Conn ID`) + len(`Message`)
-+ `Packet Length = 6`的消息用来表示`Conn ID`无效。
++ `Packet Length = 6`的消息用来关闭虚拟连接。
 + `Client ID = max(uint32)`并且`Conn ID = 0`的消息用来进行存活检查，服务端收到此消息后应该立即回应相同的消息。
