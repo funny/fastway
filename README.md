@@ -80,4 +80,4 @@
 
 通讯协议：
 
-[通讯协议文档](https://raw.githubusercontent.com/fastgo/gateway/master/gateway/README.md)
+[通讯协议文档](https://github.com/fastgo/gateway/tree/master/gateway)
