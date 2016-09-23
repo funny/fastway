@@ -22,7 +22,7 @@
 
 拓扑结构：
 
-![Gateway](https://raw.githubusercontent.com/fastgo/gateway/master/gateway.png)
+![Gateway](https://raw.githubusercontent.com/fastgo/gateway/master/README.png)
 
 客户端和服务端均采用相同的协议格式与网关进行通讯，消息由4个字节包长度信息和变长的包体组成：
 
