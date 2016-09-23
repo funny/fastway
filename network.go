@@ -43,7 +43,7 @@ func ServeClients() {
 			if err != nil {
 				return
 			}
-			HandleSession(session, atomic.AddUint32(&PhysicalConnID, 1), 0, *ClientPingInterval)
+			HandleSession(session, atomic.AddUint32(&PhysicalConnID, 1), 0, *ClientPingInterval, *ClientMaxConn)
 		},
 	))
 }
@@ -61,7 +61,7 @@ func ServeServers() {
 			if err != nil {
 				return
 			}
-			HandleSession(session, ctx.(uint32), 1, *ServerPingInterval)
+			HandleSession(session, ctx.(uint32), 1, *ServerPingInterval, 0)
 		},
 	))
 }
@@ -82,7 +82,7 @@ func (s *State) Dispose() {
 }
 
 // HandleSession handle gateway sessions.
-func HandleSession(session *link.Session, id uint32, side, pingInteval int) {
+func HandleSession(session *link.Session, id uint32, side, pingInteval, maxConn int) {
 	AddPhysicalConn(id, side, session)
 
 	var (
@@ -149,7 +149,7 @@ func HandleSession(session *link.Session, id uint32, side, pingInteval int) {
 		if connID == 0 {
 			switch Protocol.DecodeCmd(msg) {
 			case gateway.DialCmd:
-				HandleDialCmd(session, side, otherSide, msg)
+				HandleDialCmd(session, side, otherSide, maxConn, msg)
 			case gateway.CloseCmd:
 				HandleCloseCmd(msg)
 			case gateway.PingCmd:

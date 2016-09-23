@@ -7,7 +7,7 @@ import (
 )
 
 // HandleDialCmd process `Dial` command.
-func HandleDialCmd(session *link.Session, side, otherSide int, msg []byte) {
+func HandleDialCmd(session *link.Session, side, otherSide, maxConn int, msg []byte) {
 	remoteID := Protocol.DecodeDialCmd(msg)
 	remote := GetPhysicalConn(remoteID, otherSide)
 
@@ -15,7 +15,7 @@ func HandleDialCmd(session *link.Session, side, otherSide int, msg []byte) {
 	pair[side] = session
 	pair[otherSide] = remote
 
-	if remote == nil || !AcceptVirtualConn(pair) {
+	if remote == nil || !AcceptVirtualConn(pair, maxConn) {
 		Protocol.SendRefuseCmd(session, remoteID)
 	}
 
@@ -23,7 +23,7 @@ func HandleDialCmd(session *link.Session, side, otherSide int, msg []byte) {
 }
 
 // AcceptVirtualConn create a virtual connection and sending notification to both side.
-func AcceptVirtualConn(pair [2]*link.Session) bool {
+func AcceptVirtualConn(pair [2]*link.Session, maxConn int) bool {
 	var connID uint32
 	for connID == 0 {
 		connID = atomic.AddUint32(&VirtualConnID, 1)
@@ -34,6 +34,9 @@ func AcceptVirtualConn(pair [2]*link.Session) bool {
 		state.Lock()
 		defer state.Unlock()
 		if state.Disposed {
+			return false
+		}
+		if maxConn != 0 && len(state.VirtualConns) >= maxConn {
 			return false
 		}
 		state.VirtualConns[connID] = struct{}{}
