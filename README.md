@@ -1,3 +1,5 @@
+[![Foundation](https://img.shields.io/badge/Golang-Foundation-green.svg)](http://golangfoundation.org)
+
 基本概念
 ========
 
@@ -56,7 +58,7 @@
 | ---- | ---- | ---- | ---- |
 | 1 | Dial | Remote ID | 无 |
 | 2 | Refuse | Remote ID | 无 |
-| 3 | Accept | Remote ID + Conn ID | Conn ID = 0 表示连接失败 |
+| 3 | Accept | Remote ID + Conn ID | 无 |
 | 4 | Close | Conn ID | 无 |
 | 5 | Ping | 无 | 收到后应立即响应 |
 
