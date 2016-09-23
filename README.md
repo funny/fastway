@@ -37,13 +37,13 @@
 | ClientMaxConn | 每个客户端可以创建的最大虚拟连接数 | 8 |
 | ClientBufferSize | 每个客户端连接使用的 bufio.Reader 缓冲区大小 | 2K |
 | ClientPingInterval | 网关在多少秒没收到客户端消息后发送PING指令给客户端 | 30秒 |
-| ClientSendChanSize | 每个客户端连接异步发送消息用的chan缓冲区大小 | 1K |
+| ClientSendChanSize | 每个客户端连接异步发送消息用的chan缓冲区大小 | 1千 |
 | ServerAddr | 网关暴露给服务端的地址 | ":0" |
 | ServerAuthPassword | 用于验证服务端合法性的秘钥 | 空 |
 | ServerAuthTimeout | 验证服务端连接时的最大IO等待时间 | 3秒 |
 | ServerBufferSize | 每个服务端连接使用的 bufio.Reader 缓冲区大小 | 64K |
 | ServerPingInterval | 网关在多少秒没收到客户端消息后发送PING指令给客户端 | 30秒 |
-| ServerSendChanSize | 每个服务端连接异步发送消息用的chan缓冲区大小 | 102400 |
+| ServerSendChanSize | 每个服务端连接异步发送消息用的chan缓冲区大小 | 10万 |
 
 通讯协议：
 
