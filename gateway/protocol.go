@@ -34,8 +34,8 @@ type Protocol struct {
 	// ClientBufferSize settings memory usage of bufio.Reader for server connections.
 	ServerBufferSize int
 
-	// ServerAuthPassword used to auth server connection.
-	ServerAuthPassword []byte
+	// ServerAuthKey used to auth server connection.
+	ServerAuthKey []byte
 
 	// ServerAuthTimeout used to limit server auth IO waiting.
 	ServerAuthTimeout time.Duration
@@ -76,7 +76,7 @@ func (p *Protocol) DialServer(conn net.Conn, serverID uint32) error {
 
 	hash := md5.New()
 	hash.Write(buf[:8])
-	hash.Write(p.ServerAuthPassword)
+	hash.Write(p.ServerAuthKey)
 	verify := hash.Sum(nil)
 	copy(buf[:md5.Size], verify)
 	binary.LittleEndian.PutUint32(buf[md5.Size:], serverID)
@@ -103,7 +103,7 @@ func (p *Protocol) AcceptServer(conn net.Conn) (uint32, error) {
 
 	hash := md5.New()
 	hash.Write(buf[:8])
-	hash.Write(p.ServerAuthPassword)
+	hash.Write(p.ServerAuthKey)
 	verify := hash.Sum(nil)
 	if _, err := io.ReadFull(conn, buf[:]); err != nil {
 		conn.Close()

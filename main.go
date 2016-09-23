@@ -54,8 +54,8 @@ var (
 	// ServerAuthTimeout setting server auth IO waiting timeout.
 	ServerAuthTimeout = flag.Int("ServerAuthTimeout", 3, "Server auth IO waiting timeout.")
 
-	// ServerAuthPassword is the private key used to auth server connection.
-	ServerAuthPassword = flag.String("ServerAuthPassword", "", "The private key used to auth server connection.")
+	// ServerAuthKey is the private key used to auth server connection.
+	ServerAuthKey = flag.String("ServerAuthKey", "", "The private key used to auth server connection.")
 
 	// ServerBufferSize setting buffer size of bufio.Reader for server connections.
 	ServerBufferSize = flag.Int("ServerBufferSize", 64*1024, "Buffer size of bufio.Reader for server connections.")
@@ -73,13 +73,13 @@ func main() {
 	flag.Parse()
 
 	Protocol = gateway.Protocol{
-		Rand:               rand.New(rand.NewSource(time.Now().UnixNano())),
-		Pool:               slab.NewAtomPool(*MemPoolMinChunk, *MemPoolMaxChunk, *MemPoolFactor, *MemPoolSize),
-		MaxPacketSize:      *MaxPacketSize,
-		ClientBufferSize:   *ClientBufferSize,
-		ServerBufferSize:   *ServerBufferSize,
-		ServerAuthPassword: []byte(*ServerAuthPassword),
-		ServerAuthTimeout:  time.Duration(*ServerAuthTimeout),
+		Rand:              rand.New(rand.NewSource(time.Now().UnixNano())),
+		Pool:              slab.NewAtomPool(*MemPoolMinChunk, *MemPoolMaxChunk, *MemPoolFactor, *MemPoolSize),
+		MaxPacketSize:     *MaxPacketSize,
+		ClientBufferSize:  *ClientBufferSize,
+		ServerBufferSize:  *ServerBufferSize,
+		ServerAuthKey:     []byte(*ServerAuthKey),
+		ServerAuthTimeout: time.Duration(*ServerAuthTimeout),
 	}
 
 	go ServeClients()
