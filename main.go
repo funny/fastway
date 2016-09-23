@@ -55,7 +55,7 @@ var (
 	ServerAuthTimeout = flag.Int("ServerAuthTimeout", 3, "Server auth IO waiting timeout.")
 
 	// ServerAuthPassword is the private key used to auth server connection.
-	ServerAuthPassword = flag.String("Password", "", "The private key used to auth server connection.")
+	ServerAuthPassword = flag.String("ServerAuthPassword", "", "The private key used to auth server connection.")
 
 	// ServerBufferSize setting buffer size of bufio.Reader for server connections.
 	ServerBufferSize = flag.Int("ServerBufferSize", 64*1024, "Buffer size of bufio.Reader for server connections.")
