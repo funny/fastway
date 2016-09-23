@@ -25,58 +25,25 @@
 
 命令参数：
 
-```
--ClientAddr string
-	网关暴露给客户端的地址 (默认 ":0")
-
--ClientBufferSize int
-	每个客户端连接使用的 bufio.Reader 缓冲区大小 (默认 2048字节)
-
--ClientMaxConn int
-	每个客户端可以创建的最大虚拟连接数 (默认 8)
-
--ClientPingInterval int
-	网关在多少秒没收到客户端消息后发送PING指令给客户端 (默认 30秒)
-
--ClientSendChanSize int
-	每个客户端连接异步发送消息用的chan缓冲区大小 (默认 1024)
-
--MaxPacketSize int
-	最大的消息包体积 (默认 524288字节)
-
--MemPoolFactor int
-	Slab内存池的Chunk递增指数 (默认 2)
-
--MemPoolMaxChunk int
-	Slab内存池中最大的Chunk大小 (默认 65536字节)
-
--MemPoolMinChunk int
-	Slab内存池中最小的Chunk大小 (默认 64字节)
-
--MemPoolSize int
-	Slab内存池的总内存大小 (默认 10485760字节)
-
--Password string
-	用于验证服务端合法性的秘钥
-
--ReusePort
-	是否开启reuseport特性
-
--ServerAddr string
-	网关暴露给服务端的地址 (默认 ":0")
-
--ServerAuthTimeout int
-	验证服务端连接时的最大IO等待时间 (默认 3秒)
-
--ServerBufferSize int
-	每个服务端连接使用的 bufio.Reader 缓冲区大小 (默认 65536字节)
-
--ServerPingInterval int
-	网关在多少秒没收到客户端消息后发送PING指令给客户端 (默认 30秒)
-
--ServerSendChanSize int
-	每个服务端连接异步发送消息用的chan缓冲区大小 (默认 102400)
-```
+| 参数名 | 说明 | 默认值 |
+| --- | --- | --- |
+| ClientAddr | 网关暴露给客户端的地址 | ":0" |
+| ClientBufferSize | 每个客户端连接使用的 bufio.Reader 缓冲区大小 | 2K |
+| ClientMaxConn | 每个客户端可以创建的最大虚拟连接数 | 8 |
+| ClientPingInterval | 网关在多少秒没收到客户端消息后发送PING指令给客户端 | 30秒 |
+| ClientSendChanSize | 每个客户端连接异步发送消息用的chan缓冲区大小 | 1K |
+| MaxPacketSize | 最大的消息包体积 | 512K |
+| MemPoolFactor | Slab内存池的Chunk递增指数 | 2 |
+| MemPoolMaxChunk | Slab内存池中最大的Chunk大小 | 64K |
+| MemPoolMinChunk | Slab内存池中最小的Chunk大小 | 64B |
+| MemPoolSize | Slab内存池的总内存大小 | 10M |
+| Password | 用于验证服务端合法性的秘钥 | 空 |
+| ReusePort | 是否开启reuseport特性 | false |
+| ServerAddr | 网关暴露给服务端的地址 | ":0" |
+| ServerAuthTimeout | 验证服务端连接时的最大IO等待时间 | 3秒 |
+| ServerBufferSize | 每个服务端连接使用的 bufio.Reader 缓冲区大小 | 64K |
+| ServerPingInterval | 网关在多少秒没收到客户端消息后发送PING指令给客户端 | 30秒 |
+| ServerSendChanSize | 每个服务端连接异步发送消息用的chan缓冲区大小 | 102400 |
 
 通讯协议：
 
