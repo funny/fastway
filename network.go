@@ -32,7 +32,11 @@ func Listen(addr string) net.Listener {
 
 // ServeClients setup a server to serve client connections.
 func ServeClients() {
-	server := link.NewServer(Listen(*ClientAddr), link.ProtocolFunc(Protocol.NewClientCodec), *ClientSendChanSize)
+	listener := Listen(*ClientAddr)
+
+	log.Printf("setup client listener at: %s", listener.Addr())
+
+	server := link.NewServer(listener, link.ProtocolFunc(Protocol.NewClientCodec), *ClientSendChanSize)
 
 	server.Serve(link.HandlerFunc(
 		func(session *link.Session, ctx link.Context, err error) {
@@ -46,7 +50,11 @@ func ServeClients() {
 
 // ServeServers setup a server to serve server connections.
 func ServeServers() {
-	server := link.NewServer(Listen(*ServerAddr), link.ProtocolFunc(Protocol.NewServerCodec), *ServerSendChanSize)
+	listener := Listen(*ServerAddr)
+
+	log.Printf("setup server listener at: %s", listener.Addr())
+
+	server := link.NewServer(listener, link.ProtocolFunc(Protocol.NewServerCodec), *ServerSendChanSize)
 
 	server.Serve(link.HandlerFunc(
 		func(session *link.Session, ctx link.Context, err error) {

@@ -61,7 +61,7 @@ var (
 	ServerBufferSize = flag.Int("ServerBufferSize", 64*1024, "Buffer size of bufio.Reader for server connections.")
 
 	// ServerSendChanSize tunning server session's async behavior, this value must greater be then zero.
-	ServerSendChanSize = flag.Int("ServerSendChanSize", 1024, "Tunning server session's async behavior, this value must be greater then zero.")
+	ServerSendChanSize = flag.Int("ServerSendChanSize", 102400, "Tunning server session's async behavior, this value must be greater then zero.")
 
 	// ServerPingInterval setting the time interval of sending PING to check connection alive after last time receiving message.
 	ServerPingInterval = flag.Int("ServerPingInterval", 30, "The time interval of sending PING to check server connection alive after last time receiving message.")
