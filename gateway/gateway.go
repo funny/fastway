@@ -196,11 +196,25 @@ func (g *Gateway) handleSession(session *link.Session, id uint32, side, pingInte
 		if connID == 0 {
 			switch g.decodeCmd(msg) {
 			case newCmd:
-				g.handleNewCmd(session, msg)
+				g.free(msg)
+				var connID uint32
+				for connID == 0 {
+					connID = atomic.AddUint32(&g.virtualConnID, 1)
+				}
+				g.send(session, g.encodeOpenCmd(connID))
 			case dialCmd:
-				g.handleDialCmd(session, side, otherSide, maxConn, msg)
+				connID, remoteID := g.decodeDialCmd(msg)
+				g.free(msg)
+				var pair [2]*link.Session
+				pair[side] = session
+				pair[otherSide] = g.getPhysicalConn(remoteID, otherSide)
+				if pair[otherSide] == nil || !g.acceptVirtualConn(connID, pair, session, maxConn) {
+					g.send(session, g.encodeRefuseCmd(connID))
+				}
 			case closeCmd:
-				g.handleCloseCmd(msg)
+				connID := g.decodeCloseCmd(msg)
+				g.free(msg)
+				g.closeVirtualConn(connID)
 			case pingCmd:
 				g.free(msg)
 				health = (health + 1) % 3
@@ -224,31 +238,6 @@ func (g *Gateway) handleSession(session *link.Session, id uint32, side, pingInte
 		}
 
 		g.send(pair[otherSide], msg)
-	}
-}
-
-func (g *Gateway) handleNewCmd(session *link.Session, msg []byte) {
-	var connID uint32
-	for connID == 0 {
-		connID = atomic.AddUint32(&g.virtualConnID, 1)
-	}
-	g.free(msg)
-
-	g.send(session, g.encodeOpenCmd(connID))
-}
-
-func (g *Gateway) handleDialCmd(session *link.Session, side, otherSide, maxConn int, msg []byte) {
-	connID, remoteID := g.decodeDialCmd(msg)
-	g.free(msg)
-
-	remote := g.getPhysicalConn(remoteID, otherSide)
-
-	var pair [2]*link.Session
-	pair[side] = session
-	pair[otherSide] = remote
-
-	if remote == nil || !g.acceptVirtualConn(connID, pair, session, maxConn) {
-		g.send(session, g.encodeRefuseCmd(connID))
 	}
 }
 
@@ -280,13 +269,6 @@ func (g *Gateway) acceptVirtualConn(connID uint32, pair [2]*link.Session, sessio
 		g.send(pair[i], g.encodeAcceptCmd(connID, remoteID))
 	}
 	return true
-}
-
-func (g *Gateway) handleCloseCmd(msg []byte) {
-	connID := g.decodeCloseCmd(msg)
-	g.free(msg)
-
-	g.closeVirtualConn(connID)
 }
 
 func (g *Gateway) closeVirtualConn(connID uint32) {
