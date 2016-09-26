@@ -2,10 +2,11 @@ package main
 
 import (
 	"flag"
-	"math/rand"
-	"time"
+	"log"
+	"net"
 
 	"github.com/fastgo/gateway/gateway"
+	"github.com/fastgo/reuseport"
 	"github.com/funny/cmd"
 	"github.com/funny/slab"
 )
@@ -67,23 +68,42 @@ var (
 	ServerPingInterval = flag.Int("ServerPingInterval", 30, "The time interval of sending PING to check server connection alive after last time receiving message.")
 )
 
-var Protocol gateway.Protocol
-
 func main() {
 	flag.Parse()
 
-	Protocol = gateway.Protocol{
-		Rand:              rand.New(rand.NewSource(time.Now().UnixNano())),
-		Pool:              slab.NewAtomPool(*MemPoolMinChunk, *MemPoolMaxChunk, *MemPoolFactor, *MemPoolSize),
-		MaxPacketSize:     *MaxPacketSize,
-		ClientBufferSize:  *ClientBufferSize,
-		ServerBufferSize:  *ServerBufferSize,
-		ServerAuthKey:     []byte(*ServerAuthKey),
-		ServerAuthTimeout: time.Duration(*ServerAuthTimeout),
-	}
+	pool := slab.NewAtomPool(*MemPoolMinChunk, *MemPoolMaxChunk, *MemPoolFactor, *MemPoolSize)
 
-	go ServeClients()
-	go ServeServers()
+	gw := gateway.NewGateway(pool, *MaxPacketSize)
+
+	go gw.ServeClients(
+		listen(*ClientAddr, "client"), *ClientMaxConn,
+		*ClientBufferSize, *ClientSendChanSize, *ClientPingInterval,
+	)
+
+	go gw.ServeServers(
+		listen(*ServerAddr, "server"), *ServerAuthKey, *ServerAuthTimeout,
+		*ServerBufferSize, *ServerSendChanSize, *ServerPingInterval,
+	)
 
 	cmd.Shell("gateway")
+
+	gw.Stop()
+}
+
+func listen(addr, forWho string) net.Listener {
+	var lsn net.Listener
+	var err error
+
+	if *ReusePort {
+		lsn, err = reuseport.NewReusablePortListener("tcp", *ClientAddr)
+	} else {
+		lsn, err = net.Listen("tcp", *ClientAddr)
+	}
+
+	if err != nil {
+		log.Fatalf("setup %s listener at %s failed - %s", forWho, addr, err)
+	}
+
+	log.Printf("setup %s listener at - %s", forWho, lsn.Addr())
+	return lsn
 }
