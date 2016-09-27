@@ -5,7 +5,7 @@ go:
 
 install:
     - go get github.com/mattn/goveralls
-	- go get github.com/funny/utest
+    - go get github.com/funny/utest
     - go get -d -v ./...
 
 script:
