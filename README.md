@@ -1,6 +1,6 @@
 [![Foundation](https://img.shields.io/badge/Golang-Foundation-green.svg)](http://golangfoundation.org)
 
-说明
+简介
 ====
 
 本网关不是一个通用型的网关，它有一套自己的通讯协议，需要配套的客户端和服务端才能使用。
