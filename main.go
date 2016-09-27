@@ -5,8 +5,8 @@ import (
 	"log"
 	"net"
 
-	"github.com/fastgo/gateway/gateway"
-	"github.com/fastgo/reuseport"
+	"github.com/fast/fastway/fastway"
+	"github.com/fast/reuseport"
 	"github.com/funny/cmd"
 	"github.com/funny/slab"
 )
@@ -73,7 +73,7 @@ func main() {
 
 	pool := slab.NewAtomPool(*MemPoolMinChunk, *MemPoolMaxChunk, *MemPoolFactor, *MemPoolSize)
 
-	gw := gateway.NewGateway(pool, *MaxPacketSize)
+	gw := fastway.NewGateway(pool, *MaxPacketSize)
 
 	go gw.ServeClients(
 		listen(*ClientAddr, "client"), *ClientMaxConn,
@@ -85,7 +85,7 @@ func main() {
 		*ServerBufferSize, *ServerSendChanSize, *ServerPingInterval,
 	)
 
-	cmd.Shell("gateway")
+	cmd.Shell("fastway")
 
 	gw.Stop()
 }
