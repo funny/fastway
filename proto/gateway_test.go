@@ -105,7 +105,9 @@ L:
 	utest.EqualNow(t, 0, server.virtualConns.Len())
 
 	for i := 0; i < len(gw.virtualConns); i++ {
+		gw.virtualConnMutexes[i].Lock()
 		utest.EqualNow(t, 0, len(gw.virtualConns[i]))
+		gw.virtualConnMutexes[i].Unlock()
 	}
 
 	gw.Stop()
@@ -197,7 +199,9 @@ L:
 	utest.EqualNow(t, 0, server.virtualConns.Len())
 
 	for i := 0; i < len(gw.virtualConns); i++ {
+		gw.virtualConnMutexes[i].Lock()
 		utest.EqualNow(t, 0, len(gw.virtualConns[i]))
+		gw.virtualConnMutexes[i].Unlock()
 	}
 
 	gw.Stop()

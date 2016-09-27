@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/funny/link"
-	"github.com/funny/slab"
 )
 
 // SizeofLen is the size of `Length` field.
@@ -24,7 +23,6 @@ type codec struct {
 	reader  *bufio.Reader
 	headBuf []byte
 	headDat [SizeofLen]byte
-	pool    *slab.AtomPool
 }
 
 func (p *protocol) newCodec(conn net.Conn, bufferSize int) *codec {

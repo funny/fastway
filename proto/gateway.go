@@ -27,7 +27,7 @@ type Gateway struct {
 	virtualConnMutexes [connBuckets]sync.RWMutex
 }
 
-func NewGateway(pool *slab.AtomPool, maxPacketSize int) *Gateway {
+func NewGateway(pool slab.Pool, maxPacketSize int) *Gateway {
 	var gateway Gateway
 
 	gateway.pool = pool
@@ -131,8 +131,6 @@ func (g *Gateway) Stop() {
 }
 
 func (g *Gateway) handleSession(session *link.Session, id uint32, side, pingInteval, maxConn int) {
-	g.addPhysicalConn(id, side, session)
-
 	var (
 		health    = 2
 		closeChan = make(chan int)
@@ -145,6 +143,8 @@ func (g *Gateway) handleSession(session *link.Session, id uint32, side, pingInte
 		VirtualConns:   make(map[uint32]struct{}),
 	}
 	session.State = &state
+
+	g.addPhysicalConn(id, side, session)
 
 	defer func() {
 		close(closeChan)

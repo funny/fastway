@@ -14,7 +14,7 @@ import (
 
 var ErrRefused = errors.New("virtual connection refused")
 
-func DialClient(addr string, pool *slab.AtomPool, maxPacketSize, bufferSize, sendChanSize int) (*Endpoint, error) {
+func DialClient(addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChanSize int) (*Endpoint, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
@@ -25,7 +25,7 @@ func DialClient(addr string, pool *slab.AtomPool, maxPacketSize, bufferSize, sen
 	return ep, nil
 }
 
-func DialServer(addr string, pool *slab.AtomPool, serverID uint32, key string, authTimeout, maxPacketSize, bufferSize, sendChanSize int) (*Endpoint, error) {
+func DialServer(addr string, pool slab.Pool, serverID uint32, key string, authTimeout, maxPacketSize, bufferSize, sendChanSize int) (*Endpoint, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ type Endpoint struct {
 	virtualConns *link.Uint32Channel
 }
 
-func newEndpoint(pool *slab.AtomPool, maxPacketSize int) *Endpoint {
+func newEndpoint(pool slab.Pool, maxPacketSize int) *Endpoint {
 	return &Endpoint{
 		protocol: protocol{
 			pool:          pool,

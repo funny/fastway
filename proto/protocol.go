@@ -15,7 +15,7 @@ import (
 )
 
 type protocol struct {
-	pool          *slab.AtomPool
+	pool          slab.Pool
 	maxPacketSize int
 }
 
@@ -29,7 +29,7 @@ func (p *protocol) free(msg []byte) {
 
 func (p *protocol) send(session *link.Session, msg []byte) error {
 	if err := session.Send(&msg); err != nil {
-		p.pool.Free(msg)
+		p.free(msg)
 		session.Close()
 	}
 	return nil
@@ -56,7 +56,7 @@ const (
 )
 
 func (p *protocol) allocCmd(t byte, size int) []byte {
-	buffer := p.pool.Alloc(SizeofLen + size)
+	buffer := p.alloc(SizeofLen + size)
 	binary.LittleEndian.PutUint32(buffer, uint32(size))
 	binary.LittleEndian.PutUint32(buffer[cmdConnID:], 0)
 	buffer[cmdType] = t

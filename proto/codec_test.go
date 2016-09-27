@@ -14,7 +14,7 @@ import (
 )
 
 var TestAddr string
-var TestPool = slab.NewAtomPool(64, 64*1024, 2, 1024*1024)
+var TestPool = slab.NewSyncPool(64, 64*1024, 2)
 var TestProto = protocol{TestPool, 2048}
 
 func init() {
