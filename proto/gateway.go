@@ -15,6 +15,7 @@ import (
 
 const connBuckets = 32
 
+// Gateway implements gateway protocol.
 type Gateway struct {
 	protocol
 	servers [2]*link.Server
@@ -27,6 +28,7 @@ type Gateway struct {
 	virtualConnMutexes [connBuckets]sync.RWMutex
 }
 
+// NewGateway create a gateway.
 func NewGateway(pool slab.Pool, maxPacketSize int) *Gateway {
 	var gateway Gateway
 
@@ -94,6 +96,11 @@ func (s *gwState) Dispose() {
 	s.Unlock()
 }
 
+// ServeClients serve client connections.
+// maxConn limits max virtual connection number for each client.
+// bufferSize settings bufio.Reader memory usage for each client.
+// sendChanSize settings async sending behavior for clients.
+// pingInterval is the seconds of that gateway not receiving message from client will send PING command to check it alive.
 func (g *Gateway) ServeClients(lsn net.Listener, maxConn, bufferSize, sendChanSize, pingInterval int) {
 	g.servers[0] = link.NewServer(lsn, link.ProtocolFunc(func(rw io.ReadWriter) (link.Codec, link.Context, error) {
 		return g.newCodec(rw.(net.Conn), bufferSize), nil, nil
@@ -107,6 +114,11 @@ func (g *Gateway) ServeClients(lsn net.Listener, maxConn, bufferSize, sendChanSi
 	}))
 }
 
+// ServeServers serve server connections.
+// maxConn limits max virtual connection number for each server.
+// bufferSize settings bufio.Reader memory usage for each servers.
+// sendChanSize settings async sending behavior for servers.
+// pingInterval is the seconds of that gateway not receiving message from server will send PING command to check it alive.
 func (g *Gateway) ServeServers(lsn net.Listener, key string, authTimeout, bufferSize, sendChanSize, pingInterval int) {
 	g.servers[1] = link.NewServer(lsn, link.ProtocolFunc(func(rw io.ReadWriter) (link.Codec, link.Context, error) {
 		serverID, err := g.serverAuth(rw.(net.Conn), []byte(key), time.Duration(authTimeout)*time.Second)
@@ -125,6 +137,7 @@ func (g *Gateway) ServeServers(lsn net.Listener, key string, authTimeout, buffer
 	}))
 }
 
+// Stop gateway.
 func (g *Gateway) Stop() {
 	g.servers[0].Stop()
 	g.servers[1].Stop()

@@ -14,6 +14,12 @@ import (
 
 var ErrRefused = errors.New("virtual connection refused")
 
+// DialClient dial to gateway and return a client endpoint.
+// addr is the target gateway's client address.
+// pool used to pooling message buffers.
+// maxPacketSize limits max packet size.
+// bufferSize settings bufio.Reader memory usage.
+// sendChanSize settings async sending behavior.
 func DialClient(addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChanSize int) (*Endpoint, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
@@ -25,6 +31,15 @@ func DialClient(addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChan
 	return ep, nil
 }
 
+// DialServer dial to gateway and return a server endpoint.
+// addr is the target gateway's server address.
+// pool used to pooling message buffers.
+// serverID is the server ID of current server.
+// key is the auth key used in server handshake.
+// authTimeout is the IO waiting timeout when server handshake.
+// maxPacketSize limits max packet size.
+// bufferSize settings bufio.Reader memory usage.
+// sendChanSize settings async sending behavior.
 func DialServer(addr string, pool slab.Pool, serverID uint32, key string, authTimeout, maxPacketSize, bufferSize, sendChanSize int) (*Endpoint, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
@@ -45,6 +60,7 @@ type vconn struct {
 	RemoteID uint32
 }
 
+// Endpoint is can be a client or a server.
 type Endpoint struct {
 	protocol
 	session      *link.Session
@@ -68,11 +84,13 @@ func newEndpoint(pool slab.Pool, maxPacketSize int) *Endpoint {
 	}
 }
 
+// Accept accept a virtual connection.
 func (p *Endpoint) Accept() (session *link.Session, connID, remoteID uint32, err error) {
 	conn := <-p.acceptChan
 	return conn.Session, conn.ConnID, conn.RemoteID, nil
 }
 
+// Dial create a virtual connection and dial to a remote endpoint.
 func (p *Endpoint) Dial(remoteID uint32) (*link.Session, uint32, error) {
 	p.dialMutex.Lock()
 	defer p.dialMutex.Unlock()
