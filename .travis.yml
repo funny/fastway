@@ -1,0 +1,18 @@
+language: go
+
+go:
+  - 1.7
+
+install:
+    - go get github.com/mattn/goveralls
+    - go get -d -v ./...
+
+script:
+    - go vet -x
+    - go vet -x github.com/fast/fastway/proto
+	- go install
+	- go install github.com/fast/fastway/proto
+    - go test -covermode=count -coverprofile=profile.cov -v github.com/fast/fastway/proto
+
+after_script:
+    - $HOME/gopath/bin/goveralls -coverprofile=profile.cov -service=travis-ci
