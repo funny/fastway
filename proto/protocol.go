@@ -1,4 +1,4 @@
-package fastway
+package proto
 
 import (
 	"bytes"

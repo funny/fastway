@@ -56,7 +56,7 @@
 调用示例1 - 以客户端身份连接到网关：
 
 ```go
-client, err := DialClient(
+client, err := proto.DialClient(
 	GatewayAddr,   // 网关地址
 	MyMsgFormat,   // 消息格式
 	MyMemPool,     // 内存池
@@ -69,7 +69,7 @@ client, err := DialClient(
 调用示例2 - 以服务端身份连接到网关：
 
 ```go
-server, err := DialServer(
+server, err := proto.DialServer(
 	GatewayAddr,   // 网关地址
 	MyMsgFormat,   // 消息格式
 	MyMemPool,     // 内存池

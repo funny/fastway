@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/fast/fastway/fastway"
+	"github.com/fast/fastway/proto"
 	"github.com/fast/reuseport"
 	"github.com/funny/cmd"
 	"github.com/funny/slab"
@@ -73,7 +73,7 @@ func main() {
 
 	pool := slab.NewAtomPool(*MemPoolMinChunk, *MemPoolMaxChunk, *MemPoolFactor, *MemPoolSize)
 
-	gw := fastway.NewGateway(pool, *MaxPacketSize)
+	gw := proto.NewGateway(pool, *MaxPacketSize)
 
 	go gw.ServeClients(
 		listen(*ClientAddr, "client"), *ClientMaxConn,
