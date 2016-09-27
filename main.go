@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"net"
+	"time"
 
 	"github.com/fast/fastway/proto"
 	"github.com/fast/reuseport"
@@ -24,14 +25,16 @@ var (
 	clientMaxConn      = flag.Int("ClientMaxConn", 8, "Limit max virtual connections for each client.")
 	clientBufferSize   = flag.Int("ClientBufferSize", 2*1024, "Setting bufio.Reader's buffer size.")
 	clientSendChanSize = flag.Int("ClientSendChanSize", 1024, "Tunning client session's async behavior.")
-	clientPingInterval = flag.Int("ClientPingInterval", 30, "The seconds of that gateway not receiving message from client will send PING command to check it alive.")
+	clientPingInterval = flag.Duration("ClientPingInterval", 30*time.Second,
+		"The seconds of that gateway not receiving message from client will send PING command to check it alive.")
 
 	serverAddr         = flag.String("ServerAddr", ":0", "Is the address where servers connect to.")
 	serverAuthTimeout  = flag.Int("ServerAuthTimeout", 3, "Server auth IO waiting timeout.")
 	serverAuthKey      = flag.String("ServerAuthKey", "", "The private key used to auth server connection.")
 	serverBufferSize   = flag.Int("ServerBufferSize", 64*1024, "Buffer size of bufio.Reader for server connections.")
 	serverSendChanSize = flag.Int("ServerSendChanSize", 102400, "Tunning server session's async behavior, this value must be greater than zero.")
-	serverPingInterval = flag.Int("ServerPingInterval", 30, "The seconds of that gateway not receiving message from server will send PING command to check it alive.")
+	serverPingInterval = flag.Duration("ServerPingInterval", 30*time.Second,
+		"The seconds of that gateway not receiving message from server will send PING command to check it alive.")
 )
 
 func main() {

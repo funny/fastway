@@ -21,8 +21,8 @@ func Test_Gateway(t *testing.T) {
 
 	gw := NewGateway(TestPool, 2048)
 
-	go gw.ServeClients(lsn1, 10000, 1024, 1024, 30)
-	go gw.ServeServers(lsn2, "123", 3, 1024, 1024, 30)
+	go gw.ServeClients(lsn1, 10000, 1024, 1024, 30*time.Second)
+	go gw.ServeServers(lsn2, "123", 3, 1024, 1024, 30*time.Second)
 
 	time.Sleep(time.Second)
 
@@ -122,8 +122,8 @@ func Test_GatewayParallel(t *testing.T) {
 
 	gw := NewGateway(TestPool, 2048)
 
-	go gw.ServeClients(lsn1, 10000, 1024, 1024, 30)
-	go gw.ServeServers(lsn2, "123", 3, 1024, 1024, 30)
+	go gw.ServeClients(lsn1, 10000, 1024, 1024, 30*time.Second)
+	go gw.ServeServers(lsn2, "123", 3, 1024, 1024, 30*time.Second)
 
 	time.Sleep(time.Second)
 

@@ -83,25 +83,12 @@ func (g *Gateway) getPhysicalConn(connID uint32, side int) *link.Session {
 	return g.physicalConns[connID%connBuckets][side].Get(connID)
 }
 
-type gwState struct {
-	sync.Mutex
-	Disposed       bool
-	PhysicalConnID uint32
-	VirtualConns   map[uint32]struct{}
-}
-
-func (s *gwState) Dispose() {
-	s.Lock()
-	s.Disposed = true
-	s.Unlock()
-}
-
 // ServeClients serve client connections.
 // maxConn limits max virtual connection number for each client.
 // bufferSize settings bufio.Reader memory usage for each client.
 // sendChanSize settings async sending behavior for clients.
 // pingInterval is the seconds of that gateway not receiving message from client will send PING command to check it alive.
-func (g *Gateway) ServeClients(lsn net.Listener, maxConn, bufferSize, sendChanSize, pingInterval int) {
+func (g *Gateway) ServeClients(lsn net.Listener, maxConn, bufferSize, sendChanSize int, pingInterval time.Duration) {
 	g.servers[0] = link.NewServer(lsn, link.ProtocolFunc(func(rw io.ReadWriter) (link.Codec, link.Context, error) {
 		return g.newCodec(rw.(net.Conn), bufferSize), nil, nil
 	}), sendChanSize)
@@ -110,7 +97,7 @@ func (g *Gateway) ServeClients(lsn net.Listener, maxConn, bufferSize, sendChanSi
 		if err != nil {
 			return
 		}
-		g.handleSession(session, atomic.AddUint32(&g.physicalConnID, 1), 0, pingInterval, maxConn)
+		g.handleSession(atomic.AddUint32(&g.physicalConnID, 1), session, 0, maxConn, pingInterval)
 	}))
 }
 
@@ -119,7 +106,7 @@ func (g *Gateway) ServeClients(lsn net.Listener, maxConn, bufferSize, sendChanSi
 // bufferSize settings bufio.Reader memory usage for each servers.
 // sendChanSize settings async sending behavior for servers.
 // pingInterval is the seconds of that gateway not receiving message from server will send PING command to check it alive.
-func (g *Gateway) ServeServers(lsn net.Listener, key string, authTimeout, bufferSize, sendChanSize, pingInterval int) {
+func (g *Gateway) ServeServers(lsn net.Listener, key string, authTimeout, bufferSize, sendChanSize int, pingInterval time.Duration) {
 	g.servers[1] = link.NewServer(lsn, link.ProtocolFunc(func(rw io.ReadWriter) (link.Codec, link.Context, error) {
 		serverID, err := g.serverAuth(rw.(net.Conn), []byte(key), time.Duration(authTimeout)*time.Second)
 		if err != nil {
@@ -133,7 +120,7 @@ func (g *Gateway) ServeServers(lsn net.Listener, key string, authTimeout, buffer
 		if err != nil {
 			return
 		}
-		g.handleSession(session, ctx.(uint32), 1, pingInterval, 0)
+		g.handleSession(ctx.(uint32), session, 1, 0, pingInterval)
 	}))
 }
 
@@ -143,38 +130,80 @@ func (g *Gateway) Stop() {
 	g.servers[1].Stop()
 }
 
-func (g *Gateway) handleSession(session *link.Session, id uint32, side, pingInteval, maxConn int) {
-	var (
-		health    = 2
-		closeChan = make(chan int)
-		pingTimer = time.NewTimer(time.Duration(pingInteval) * time.Second)
-		otherSide = (side + 1) % 2
-	)
+type gwState struct {
+	sync.Mutex
+	id           uint32
+	gateway      *Gateway
+	session      *link.Session
+	pingTimer    *time.Timer
+	health       int
+	disposeChan  chan struct{}
+	disposeOnce  sync.Once
+	disposed     bool
+	virtualConns map[uint32]struct{}
+}
 
-	var state = gwState{
-		PhysicalConnID: id,
-		VirtualConns:   make(map[uint32]struct{}),
+func (g *Gateway) newSessionState(id uint32, session *link.Session, pingInterval time.Duration) *gwState {
+	gs := &gwState{
+		id:           id,
+		session:      session,
+		health:       2,
+		pingTimer:    time.NewTimer(pingInterval),
+		disposeChan:  make(chan struct{}),
+		virtualConns: make(map[uint32]struct{}),
 	}
-	session.State = &state
+	go gs.watcher()
+	return gs
+}
 
-	g.addPhysicalConn(id, side, session)
+func (gs *gwState) Dispose() {
+	gs.disposeOnce.Do(func() {
+		close(gs.disposeChan)
+		gs.pingTimer.Stop()
+		gs.session.Close()
 
-	defer func() {
-		close(closeChan)
-		pingTimer.Stop()
-		session.Close()
-		state.Dispose()
+		gs.Lock()
+		gs.disposed = true
+		gs.Unlock()
 
 		// Close releated virtual connections
-		for connID := range state.VirtualConns {
-			g.closeVirtualConn(connID)
+		for connID := range gs.virtualConns {
+			gs.gateway.closeVirtualConn(connID)
 		}
 
 		// Free message buffers in send chan.
-		close(session.SendChan())
-		for msg := range session.SendChan() {
-			g.free(*(msg.(*[]byte)))
+		close(gs.session.SendChan())
+		for msg := range gs.session.SendChan() {
+			gs.gateway.free(*(msg.(*[]byte)))
 		}
+	})
+}
+
+func (gs *gwState) watcher() {
+L:
+	for {
+		select {
+		case <-gs.pingTimer.C:
+			if gs.health--; gs.health <= 0 {
+				break L
+			}
+			if gs.gateway.send(gs.session, gs.gateway.encodePingCmd()) != nil {
+				break L
+			}
+		case <-gs.disposeChan:
+			break L
+		}
+	}
+	gs.Dispose()
+}
+
+func (g *Gateway) handleSession(id uint32, session *link.Session, side, maxConn int, pingInterval time.Duration) {
+	state := g.newSessionState(id, session, pingInterval)
+	session.State = state
+	g.addPhysicalConn(id, side, session)
+
+	defer func() {
+		state.Dispose()
 
 		if err := recover(); err != nil {
 			log.Printf("fast/gateway.Gateway panic - %v", err)
@@ -182,19 +211,7 @@ func (g *Gateway) handleSession(session *link.Session, id uint32, side, pingInte
 		}
 	}()
 
-	go func() {
-		for {
-			select {
-			case <-pingTimer.C:
-				if health--; health <= 0 || g.send(session, g.encodePingCmd()) != nil {
-					session.Close()
-					return
-				}
-			case <-closeChan:
-				return
-			}
-		}
-	}()
+	otherSide := (side + 1) % 2
 
 	for {
 		buf, err := session.Receive()
@@ -202,7 +219,7 @@ func (g *Gateway) handleSession(session *link.Session, id uint32, side, pingInte
 			return
 		}
 
-		pingTimer.Reset(time.Duration(pingInteval) * time.Second)
+		state.pingTimer.Reset(pingInterval)
 
 		msg := *(buf.(*[]byte))
 		connID := g.decodePacket(msg)
@@ -236,8 +253,8 @@ func (g *Gateway) handleSession(session *link.Session, id uint32, side, pingInte
 
 			case pingCmd:
 				g.free(msg)
-				if health < 2 {
-					health++
+				if state.health < 2 {
+					state.health++
 				}
 
 			default:
@@ -269,25 +286,25 @@ func (g *Gateway) acceptVirtualConn(connID uint32, pair [2]*link.Session, sessio
 
 		state.Lock()
 		defer state.Unlock()
-		if state.Disposed {
+		if state.disposed {
 			return false
 		}
 
-		if pair[i] == session && maxConn != 0 && len(state.VirtualConns) >= maxConn {
+		if pair[i] == session && maxConn != 0 && len(state.virtualConns) >= maxConn {
 			return false
 		}
 
-		if _, exists := state.VirtualConns[connID]; exists {
+		if _, exists := state.virtualConns[connID]; exists {
 			panic("Virtual Connection Already Exists")
 		}
 
-		state.VirtualConns[connID] = struct{}{}
+		state.virtualConns[connID] = struct{}{}
 	}
 
 	g.addVirtualConn(connID, pair)
 
 	for i := 0; i < 2; i++ {
-		remoteID := pair[(i+1)%2].State.(*gwState).PhysicalConnID
+		remoteID := pair[(i+1)%2].State.(*gwState).id
 		g.send(pair[i], g.encodeAcceptCmd(connID, remoteID))
 	}
 	return true
@@ -303,10 +320,10 @@ func (g *Gateway) closeVirtualConn(connID uint32) {
 		state := pair[i].State.(*gwState)
 		state.Lock()
 		defer state.Unlock()
-		if state.Disposed {
+		if state.disposed {
 			return
 		}
-		delete(state.VirtualConns, connID)
+		delete(state.virtualConns, connID)
 	}
 
 	for i := 0; i < 2; i++ {
