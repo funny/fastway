@@ -192,7 +192,6 @@ func Test_ServerHandshake(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	lsn.Addr().String()
 
 	go func() {
 		conn, err := net.Dial("tcp", lsn.Addr().String())
