@@ -233,7 +233,7 @@ server, err := DialServer(
 
 ```go
 conn, connID, err := client.Dial(ServerID)
-``
+```
 
 库示例4 - 接收一个虚拟连接：
 
