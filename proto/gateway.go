@@ -234,7 +234,7 @@ func (g *Gateway) handleSession(id uint32, session *link.Session, side, maxConn 
 
 		if pair[side] != session {
 			g.free(msg)
-			panic("Virtual Endpoing Not Match")
+			panic("endpoint not match")
 		}
 
 		if pair[otherSide] == nil {
