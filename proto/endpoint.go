@@ -12,6 +12,7 @@ import (
 	"github.com/funny/slab"
 )
 
+// ErrRefused happens when virtual connection couldn't dial to remote endpoint.
 var ErrRefused = errors.New("virtual connection refused")
 
 // DialClient dial to gateway and return a client endpoint.

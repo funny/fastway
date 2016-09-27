@@ -64,7 +64,7 @@ func (p *protocol) allocCmd(t byte, size int) []byte {
 }
 
 // decodePacket decodes gateway message and returns virtual connection ID.
-func (_ *protocol) decodePacket(msg []byte) (connID uint32) {
+func (p *protocol) decodePacket(msg []byte) (connID uint32) {
 	return binary.LittleEndian.Uint32(msg[cmdConnID:])
 }
 
@@ -90,7 +90,7 @@ const (
 	openCmdConnID = cmdArgs
 )
 
-func (_ *protocol) decodeOpenCmd(msg []byte) (connID uint32) {
+func (p *protocol) decodeOpenCmd(msg []byte) (connID uint32) {
 	return binary.LittleEndian.Uint32(msg[openCmdConnID:])
 }
 
@@ -109,7 +109,7 @@ const (
 	dialCmdRemoteID = dialCmdConnID + cmdIDSize
 )
 
-func (_ *protocol) decodeDialCmd(msg []byte) (connID, remoteID uint32) {
+func (p *protocol) decodeDialCmd(msg []byte) (connID, remoteID uint32) {
 	connID = binary.LittleEndian.Uint32(msg[dialCmdConnID:])
 	remoteID = binary.LittleEndian.Uint32(msg[dialCmdRemoteID:])
 	return
@@ -145,7 +145,7 @@ const (
 	acceptCmdRemoteID = acceptCmdConnID + cmdIDSize
 )
 
-func (_ *protocol) decodeAcceptCmd(msg []byte) (connID, remoteID uint32) {
+func (p *protocol) decodeAcceptCmd(msg []byte) (connID, remoteID uint32) {
 	connID = binary.LittleEndian.Uint32(msg[acceptCmdConnID:])
 	remoteID = binary.LittleEndian.Uint32(msg[acceptCmdRemoteID:])
 	return
@@ -166,7 +166,7 @@ const (
 	closeCmdConnID = cmdArgs
 )
 
-func (_ *protocol) decodeCloseCmd(msg []byte) uint32 {
+func (p *protocol) decodeCloseCmd(msg []byte) uint32 {
 	return binary.LittleEndian.Uint32(msg[closeCmdConnID:])
 }
 
@@ -192,7 +192,7 @@ func (p *protocol) encodePingCmd() []byte {
 // ErrServerAuthFailed happens when server connection auth failed.
 var ErrServerAuthFailed = errors.New("server auth failed")
 
-func (_ *protocol) serverInit(conn net.Conn, serverID uint32, key []byte, timeout time.Duration) error {
+func (p *protocol) serverInit(conn net.Conn, serverID uint32, key []byte, timeout time.Duration) error {
 	var buf [md5.Size + cmdIDSize]byte
 
 	conn.SetDeadline(time.Now().Add(timeout))
@@ -216,7 +216,7 @@ func (_ *protocol) serverInit(conn net.Conn, serverID uint32, key []byte, timeou
 	return nil
 }
 
-func (_ *protocol) serverAuth(conn net.Conn, key []byte, timeout time.Duration) (uint32, error) {
+func (p *protocol) serverAuth(conn net.Conn, key []byte, timeout time.Duration) (uint32, error) {
 	var buf [md5.Size + cmdIDSize]byte
 
 	conn.SetDeadline(time.Now().Add(timeout))
