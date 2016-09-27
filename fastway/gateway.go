@@ -198,29 +198,35 @@ func (g *Gateway) handleSession(session *link.Session, id uint32, side, pingInte
 			switch g.decodeCmd(msg) {
 			case newCmd:
 				g.free(msg)
+
 				var connID uint32
 				for connID == 0 {
 					connID = atomic.AddUint32(&g.virtualConnID, 1)
 				}
 				g.send(session, g.encodeOpenCmd(connID))
+
 			case dialCmd:
 				connID, remoteID := g.decodeDialCmd(msg)
 				g.free(msg)
+
 				var pair [2]*link.Session
 				pair[side] = session
 				pair[otherSide] = g.getPhysicalConn(remoteID, otherSide)
 				if pair[otherSide] == nil || !g.acceptVirtualConn(connID, pair, session, maxConn) {
 					g.send(session, g.encodeRefuseCmd(connID))
 				}
+
 			case closeCmd:
 				connID := g.decodeCloseCmd(msg)
 				g.free(msg)
 				g.closeVirtualConn(connID)
+
 			case pingCmd:
 				g.free(msg)
 				if health < 2 {
 					health++
 				}
+
 			default:
 				g.free(msg)
 				panic("Unsupported Gateway Command")

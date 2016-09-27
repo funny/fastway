@@ -14,23 +14,23 @@ import (
 
 var ErrRefused = errors.New("virtual connection refused")
 
-func DialClient(addr string, format MsgFormat, pool *slab.AtomPool, maxPacketSize, bufferSize, sendChanSize int) (*Endpoint, error) {
+func DialClient(addr string, pool *slab.AtomPool, maxPacketSize, bufferSize, sendChanSize int) (*Endpoint, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
-	ep := newEndpoint(pool, maxPacketSize, format)
+	ep := newEndpoint(pool, maxPacketSize)
 	ep.session = link.NewSession(ep.newCodec(conn, bufferSize), sendChanSize)
 	go ep.loop()
 	return ep, nil
 }
 
-func DialServer(addr string, format MsgFormat, pool *slab.AtomPool, serverID uint32, key string, authTimeout, maxPacketSize, bufferSize, sendChanSize int) (*Endpoint, error) {
+func DialServer(addr string, pool *slab.AtomPool, serverID uint32, key string, authTimeout, maxPacketSize, bufferSize, sendChanSize int) (*Endpoint, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
-	ep := newEndpoint(pool, maxPacketSize, format)
+	ep := newEndpoint(pool, maxPacketSize)
 	if err := ep.serverInit(conn, serverID, []byte(key), time.Duration(authTimeout)*time.Second); err != nil {
 		return nil, err
 	}
@@ -47,25 +47,22 @@ type vconn struct {
 
 type Endpoint struct {
 	protocol
-	format       MsgFormat
 	session      *link.Session
 	newConnMutex sync.Mutex
 	newConnChan  chan uint32
 	dialMutex    sync.Mutex
-	dialChans    map[uint32]chan vconn
+	dialChan     chan vconn
 	acceptChan   chan vconn
 	virtualConns *link.Uint32Channel
 }
 
-func newEndpoint(pool *slab.AtomPool, maxPacketSize int, format MsgFormat) *Endpoint {
+func newEndpoint(pool *slab.AtomPool, maxPacketSize int) *Endpoint {
 	return &Endpoint{
 		protocol: protocol{
 			pool:          pool,
 			maxPacketSize: maxPacketSize,
 		},
-		format:       format,
 		newConnChan:  make(chan uint32),
-		dialChans:    make(map[uint32]chan vconn),
 		acceptChan:   make(chan vconn),
 		virtualConns: link.NewUint32Channel(),
 	}
@@ -80,56 +77,43 @@ func (p *Endpoint) Dial(remoteID uint32) (*link.Session, uint32, error) {
 	p.dialMutex.Lock()
 	defer p.dialMutex.Unlock()
 
-	c, connID, err := p.newConn()
-	if err != nil {
+	if err := p.send(p.session, p.encodeNewCmd()); err != nil {
 		return nil, 0, err
 	}
 
+	connID := <-p.newConnChan
+	if connID == 0 {
+		return nil, 0, ErrRefused
+	}
+
+	p.dialChan = make(chan vconn, 1)
 	if err := p.send(p.session, p.encodeDialCmd(connID, remoteID)); err != nil {
-		p.newConnMutex.Lock()
-		defer p.newConnMutex.Unlock()
-		delete(p.dialChans, connID)
 		return nil, 0, err
 	}
+	conn := <-p.dialChan
+	p.dialChan = nil
 
-	conn := <-c
-	if conn.ConnID == 0 {
+	if conn.Session == nil {
 		return nil, 0, ErrRefused
 	}
 	return conn.Session, conn.ConnID, nil
 }
 
-func (p *Endpoint) newConn() (c chan vconn, connID uint32, err error) {
-	p.newConnMutex.Lock()
-	defer p.newConnMutex.Unlock()
-
-	if err = p.send(p.session, p.encodeNewCmd()); err != nil {
-		return
-	}
-
-	connID = <-p.newConnChan
-	if connID == 0 {
-		return nil, 0, ErrRefused
-	}
-
-	c = make(chan vconn)
-	p.dialChans[connID] = c
-	return
-}
-
-func (p *Endpoint) addVirtualConn(connID, remoteID uint32) *link.Session {
-	codec := p.newVirtualCodec(p.session, connID, p.format)
+func (p *Endpoint) addVirtualConn(connID, remoteID uint32) {
+	codec := p.newVirtualCodec(p.session, connID)
 	session := link.NewSession(codec, 0)
 	p.virtualConns.Put(connID, session)
 
-	p.newConnMutex.Lock()
-	defer p.newConnMutex.Unlock()
-	if c, exists := p.dialChans[connID]; exists {
-		delete(p.dialChans, connID)
-		c <- vconn{session, connID, remoteID}
-		return nil
+	if p.dialChan != nil {
+		p.dialChan <- vconn{session, connID, remoteID}
+		return
 	}
-	return session
+
+	select {
+	case p.acceptChan <- vconn{session, connID, remoteID}:
+	default:
+		p.send(p.session, p.encodeCloseCmd(connID))
+	}
 }
 
 func (p *Endpoint) loop() {
@@ -155,22 +139,17 @@ func (p *Endpoint) loop() {
 				connID := p.decodeOpenCmd(buf)
 				p.free(buf)
 				p.newConnChan <- connID
+
 			case refuseCmd:
 				connID := p.decodeRefuseCmd(buf)
 				p.free(buf)
-				p.newConnMutex.Lock()
-				p.dialChans[connID] <- vconn{nil, 0, 0}
-				p.newConnMutex.Unlock()
+				p.dialChan <- vconn{nil, connID, 0}
+
 			case acceptCmd:
 				connID, remoteID := p.decodeAcceptCmd(buf)
 				p.free(buf)
-				if session := p.addVirtualConn(connID, remoteID); session != nil {
-					select {
-					case p.acceptChan <- vconn{session, connID, remoteID}:
-					default:
-						p.send(p.session, p.encodeCloseCmd(connID))
-					}
-				}
+				p.addVirtualConn(connID, remoteID)
+
 			case closeCmd:
 				connID := p.decodeCloseCmd(buf)
 				p.free(buf)
@@ -178,9 +157,11 @@ func (p *Endpoint) loop() {
 				if vconn != nil {
 					vconn.Close()
 				}
+
 			case pingCmd:
 				p.free(buf)
 				p.send(p.session, p.encodePingCmd())
+
 			default:
 				p.free(buf)
 				panic("unsupported command")

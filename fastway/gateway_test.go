@@ -26,40 +26,53 @@ func Test_Gateway(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	client, err := DialClient(lsn1.Addr().String(), TestMsgFormat{}, TestPool, 2048, 1024, 1024)
+	client, err := DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 1024)
 	utest.IsNilNow(t, err)
 
-	server, err := DialServer(lsn2.Addr().String(), TestMsgFormat{}, TestPool, 123, "123", 3, 2048, 1024, 1024)
+	server, err := DialServer(lsn2.Addr().String(), TestPool, 123, "123", 3, 2048, 1024, 1024)
 	utest.IsNilNow(t, err)
 
-	// make sure server registered
-	time.Sleep(time.Second)
+	// make sure connection registered
+L:
+	for {
+		n := 0
+		for i := 0; i < len(gw.physicalConns); i++ {
+			n += gw.physicalConns[i][0].Len()
+			n += gw.physicalConns[i][1].Len()
+			if n >= 2 {
+				break L
+			}
+		}
+		time.Sleep(time.Second)
+	}
 
+	var clientID uint32
 	var vconns [2][2]*link.Session
 	var connIDs [2][2]uint32
-	var clientID uint32
+	var acceptChans = [2]chan int{
+		make(chan int),
+		make(chan int),
+	}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
 	go func() {
 		var err error
 
 		vconns[0][0], connIDs[0][0], clientID, err = server.Accept()
 		utest.IsNilNow(t, err)
+		acceptChans[0] <- 1
 
 		vconns[1][0], connIDs[1][0], _, err = client.Accept()
 		utest.IsNilNow(t, err)
-
-		wg.Done()
+		acceptChans[1] <- 1
 	}()
 
 	vconns[0][1], connIDs[0][1], err = client.Dial(123)
 	utest.IsNilNow(t, err)
+	<-acceptChans[0]
 
 	vconns[1][1], connIDs[1][1], err = server.Dial(clientID)
 	utest.IsNilNow(t, err)
-
-	wg.Wait()
+	<-acceptChans[1]
 
 	utest.EqualNow(t, connIDs[0][0], connIDs[0][1])
 	utest.EqualNow(t, connIDs[1][0], connIDs[1][1])
@@ -73,12 +86,12 @@ func Test_Gateway(t *testing.T) {
 		x := rand.Intn(2)
 		y := rand.Intn(2)
 
-		err := vconns[x][y].Send(buffer1)
+		err := vconns[x][y].Send(&buffer1)
 		utest.IsNilNow(t, err)
 
 		buffer2, err := vconns[x][(y+1)%2].Receive()
 		utest.IsNilNow(t, err)
-		utest.EqualNow(t, buffer1, buffer2)
+		utest.EqualNow(t, buffer1, *(buffer2.(*[]byte)))
 	}
 
 	vconns[0][0].Close()
@@ -88,9 +101,14 @@ func Test_Gateway(t *testing.T) {
 
 	time.Sleep(time.Second)
 
+	utest.EqualNow(t, 0, client.virtualConns.Len())
+	utest.EqualNow(t, 0, server.virtualConns.Len())
+
 	for i := 0; i < len(gw.virtualConns); i++ {
 		utest.EqualNow(t, 0, len(gw.virtualConns[i]))
 	}
+
+	gw.Stop()
 }
 
 func Test_GatewayParallel(t *testing.T) {
@@ -107,14 +125,25 @@ func Test_GatewayParallel(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	client, err := DialClient(lsn1.Addr().String(), TestMsgFormat{}, TestPool, 2048, 1024, 1024)
+	client, err := DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 1024)
 	utest.IsNilNow(t, err)
 
-	server, err := DialServer(lsn2.Addr().String(), TestMsgFormat{}, TestPool, 123, "123", 3, 2048, 1024, 1024)
+	server, err := DialServer(lsn2.Addr().String(), TestPool, 123, "123", 3, 2048, 1024, 1024)
 	utest.IsNilNow(t, err)
 
-	// make sure server registered
-	time.Sleep(time.Second)
+	// make sure connection registered
+L:
+	for {
+		n := 0
+		for i := 0; i < len(gw.physicalConns); i++ {
+			n += gw.physicalConns[i][0].Len()
+			n += gw.physicalConns[i][1].Len()
+			if n >= 2 {
+				break L
+			}
+		}
+		time.Sleep(time.Second)
+	}
 
 	go func() {
 		for {
@@ -122,8 +151,13 @@ func Test_GatewayParallel(t *testing.T) {
 			utest.IsNilNow(t, err)
 			go func() {
 				for {
-					msg, _ := vconn.Receive()
-					vconn.Send(msg)
+					msg, err := vconn.Receive()
+					if err != nil {
+						return
+					}
+					if vconn.Send(msg) != nil {
+						return
+					}
 				}
 			}()
 		}
@@ -143,13 +177,12 @@ func Test_GatewayParallel(t *testing.T) {
 				for i := 0; i < len(buffer1); i++ {
 					buffer1[i] = byte(rand.Intn(256))
 				}
-
-				err := vconns.Send(buffer1)
+				err := vconns.Send(&buffer1)
 				utest.IsNilNow(t, err)
 
 				buffer2, err := vconns.Receive()
 				utest.IsNilNow(t, err)
-				utest.EqualNow(t, buffer1, buffer2)
+				utest.EqualNow(t, buffer1, *(buffer2.(*[]byte)))
 			}
 
 			vconns.Close()
@@ -160,7 +193,12 @@ func Test_GatewayParallel(t *testing.T) {
 	wg.Wait()
 	time.Sleep(time.Second)
 
+	utest.EqualNow(t, 0, client.virtualConns.Len())
+	utest.EqualNow(t, 0, server.virtualConns.Len())
+
 	for i := 0; i < len(gw.virtualConns); i++ {
 		utest.EqualNow(t, 0, len(gw.virtualConns[i]))
 	}
+
+	gw.Stop()
 }

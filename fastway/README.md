@@ -147,3 +147,63 @@
 +-----------+-----------+
    16 byte      4 byte
 ```
+
+使用示例
+=======
+
+示例1 - 以客户端身份连接到网关：
+
+```go
+client, err := DialClient(
+	GatewayAddr,   // 网关地址
+	MyMsgFormat,   // 消息格式
+	MyMemPool,     // 内存池
+	MaxPacketSize, // 包体积限制
+	BufferSize,    // 预读所用的缓冲区大小
+	SendChanSize,  // 异步发送用的chan缓冲区大小
+)
+```
+
+示例2 - 以服务端身份连接到网关：
+
+```go
+server, err := DialServer(
+	GatewayAddr,   // 网关地址
+	MyMsgFormat,   // 消息格式
+	MyMemPool,     // 内存池
+	ServerID,      // 服务端ID
+	AuthKey,       // 身份验证用的Key
+	AuthTimeout,   // 身份验证IO等待超时时间
+	MaxPacketSize, // 包体积限制
+	BufferSize,    // 预读所用的缓冲区大小
+	SendChanSize,  // 异步发送用的chan缓冲区大小
+)
+```
+
+示例3 - 创建一个虚拟连接：
+
+```go
+conn, connID, err := client.Dial(ServerID)
+``
+
+示例4 - 接收一个虚拟连接：
+
+```go
+conn, connID, clientID, err := server.Accept()
+```
+
+示例5 - 以JSON格式发送一个消息：
+
+```go
+var my MyMessage
+buf, err := json.Marshal(&msg)
+conn.Send(&buf)
+```
+
+例6 - 以JSON格式接收一个消息：
+
+```go
+var my MyMessage
+buf, err := conn.Receive()
+json.Unmarshal(*(buf.(*[]byte)), &my)
+```
