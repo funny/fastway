@@ -2,7 +2,9 @@ package gateway
 
 import (
 	"errors"
+	"log"
 	"net"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -49,6 +51,7 @@ type Endpoint struct {
 	session      *link.Session
 	newConnMutex sync.Mutex
 	newConnChan  chan uint32
+	dialMutex    sync.Mutex
 	dialChans    map[uint32]chan vconn
 	acceptChan   chan vconn
 	virtualConns *link.Uint32Channel
@@ -74,6 +77,9 @@ func (p *Endpoint) Accept() (session *link.Session, connID, remoteID uint32, err
 }
 
 func (p *Endpoint) Dial(remoteID uint32) (*link.Session, uint32, error) {
+	p.dialMutex.Lock()
+	defer p.dialMutex.Unlock()
+
 	c, connID, err := p.newConn()
 	if err != nil {
 		return nil, 0, err
@@ -115,6 +121,7 @@ func (p *Endpoint) addVirtualConn(connID, remoteID uint32) *link.Session {
 	codec := p.newVirtualCodec(p.session, connID, p.format)
 	session := link.NewSession(codec, 0)
 	p.virtualConns.Put(connID, session)
+
 	p.newConnMutex.Lock()
 	defer p.newConnMutex.Unlock()
 	if c, exists := p.dialChans[connID]; exists {
@@ -126,6 +133,12 @@ func (p *Endpoint) addVirtualConn(connID, remoteID uint32) *link.Session {
 }
 
 func (p *Endpoint) loop() {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("fast/gateway.Endpoint panic - %v", err)
+			debug.PrintStack()
+		}
+	}()
 	for {
 		msg, err := p.session.Receive()
 		if err != nil {
@@ -145,7 +158,9 @@ func (p *Endpoint) loop() {
 			case refuseCmd:
 				connID := p.decodeRefuseCmd(buf)
 				p.free(buf)
+				p.newConnMutex.Lock()
 				p.dialChans[connID] <- vconn{nil, 0, 0}
+				p.newConnMutex.Unlock()
 			case acceptCmd:
 				connID, remoteID := p.decodeAcceptCmd(buf)
 				p.free(buf)
@@ -177,12 +192,12 @@ func (p *Endpoint) loop() {
 		if vconn != nil {
 			select {
 			case vconn.Codec().(*virtualCodec).recvChan <- buf:
+				continue
 			default:
 				vconn.Close()
-				p.send(p.session, p.encodeCloseCmd(connID))
 			}
-		} else {
-			p.send(p.session, p.encodeCloseCmd(connID))
 		}
+		p.free(buf)
+		p.send(p.session, p.encodeCloseCmd(connID))
 	}
 }

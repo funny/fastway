@@ -113,6 +113,7 @@ func (g *Gateway) ServeServers(lsn net.Listener, key string, authTimeout, buffer
 		if err != nil {
 			return nil, nil, err
 		}
+		log.Printf("accept server %d from %s", serverID, rw.(net.Conn).RemoteAddr())
 		return g.newCodec(rw.(net.Conn), bufferSize), serverID, nil
 	}), sendChanSize)
 
@@ -163,7 +164,7 @@ func (g *Gateway) handleSession(session *link.Session, id uint32, side, pingInte
 		}
 
 		if err := recover(); err != nil {
-			log.Printf("Panic - %v", err)
+			log.Printf("fast/gateway.Gateway panic - %v", err)
 			debug.PrintStack()
 		}
 	}()
@@ -217,7 +218,9 @@ func (g *Gateway) handleSession(session *link.Session, id uint32, side, pingInte
 				g.closeVirtualConn(connID)
 			case pingCmd:
 				g.free(msg)
-				health = (health + 1) % 3
+				if health < 2 {
+					health++
+				}
 			default:
 				g.free(msg)
 				panic("Unsupported Gateway Command")

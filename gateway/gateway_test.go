@@ -3,6 +3,7 @@ package gateway
 import (
 	"math/rand"
 	"net"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -30,6 +31,9 @@ func Test_Gateway(t *testing.T) {
 
 	server, err := DialServer(lsn2.Addr().String(), TestMsgFormat{}, TestPool, 123, "123", 3, 2048, 1024, 1024)
 	utest.IsNilNow(t, err)
+
+	// make sure server registered
+	time.Sleep(time.Second)
 
 	var vconns [2][2]*link.Session
 	var connIDs [2][2]uint32
@@ -60,9 +64,7 @@ func Test_Gateway(t *testing.T) {
 	utest.EqualNow(t, connIDs[0][0], connIDs[0][1])
 	utest.EqualNow(t, connIDs[1][0], connIDs[1][1])
 
-	n := 5000 + rand.Intn(10000)
-
-	for i := 0; i < n; i++ {
+	for i := 0; i < 10000; i++ {
 		buffer1 := make([]byte, 1024)
 		for i := 0; i < len(buffer1); i++ {
 			buffer1[i] = byte(rand.Intn(256))
@@ -84,6 +86,78 @@ func Test_Gateway(t *testing.T) {
 	vconns[1][0].Close()
 	vconns[1][1].Close()
 
+	time.Sleep(time.Second)
+
+	for i := 0; i < len(gw.virtualConns); i++ {
+		utest.EqualNow(t, 0, len(gw.virtualConns[i]))
+	}
+}
+
+func Test_GatewayParallel(t *testing.T) {
+	lsn1, err := net.Listen("tcp", ":0")
+	utest.IsNilNow(t, err)
+
+	lsn2, err := net.Listen("tcp", ":0")
+	utest.IsNilNow(t, err)
+
+	gw := NewGateway(TestPool, 2048)
+
+	go gw.ServeClients(lsn1, 10000, 1024, 1024, 30)
+	go gw.ServeServers(lsn2, "123", 3, 1024, 1024, 30)
+
+	time.Sleep(time.Second)
+
+	client, err := DialClient(lsn1.Addr().String(), TestMsgFormat{}, TestPool, 2048, 1024, 1024)
+	utest.IsNilNow(t, err)
+
+	server, err := DialServer(lsn2.Addr().String(), TestMsgFormat{}, TestPool, 123, "123", 3, 2048, 1024, 1024)
+	utest.IsNilNow(t, err)
+
+	// make sure server registered
+	time.Sleep(time.Second)
+
+	go func() {
+		for {
+			vconn, _, _, err := server.Accept()
+			utest.IsNilNow(t, err)
+			go func() {
+				for {
+					msg, _ := vconn.Receive()
+					vconn.Send(msg)
+				}
+			}()
+		}
+	}()
+
+	var wg sync.WaitGroup
+	for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
+		wg.Add(1)
+		go func() {
+			vconns, _, err := client.Dial(123)
+			utest.IsNilNow(t, err)
+
+			n := 5000 + rand.Intn(5000)
+
+			for i := 0; i < n; i++ {
+				buffer1 := make([]byte, 1024)
+				for i := 0; i < len(buffer1); i++ {
+					buffer1[i] = byte(rand.Intn(256))
+				}
+
+				err := vconns.Send(buffer1)
+				utest.IsNilNow(t, err)
+
+				buffer2, err := vconns.Receive()
+				utest.IsNilNow(t, err)
+				utest.EqualNow(t, buffer1, buffer2)
+			}
+
+			vconns.Close()
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
 	time.Sleep(time.Second)
 
 	for i := 0; i < len(gw.virtualConns); i++ {

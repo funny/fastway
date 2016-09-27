@@ -3,6 +3,7 @@ package gateway
 import (
 	"encoding/binary"
 	"io"
+	"log"
 	"math/rand"
 	"net"
 	"testing"
@@ -35,7 +36,13 @@ func init() {
 			}()
 		}
 	}()
+
+	log.SetOutput(NullWriter{})
 }
+
+type NullWriter struct{}
+
+func (w NullWriter) Write(b []byte) (int, error) { return len(b), nil }
 
 func Test_Codec(t *testing.T) {
 	conn, err := net.Dial("tcp", TestAddr)
