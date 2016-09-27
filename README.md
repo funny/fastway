@@ -23,6 +23,95 @@
 + 每个客户端可以通过网关协议跟多个服务端建立虚拟连接
 + 每个服务端也可以通过网关协议主动跟多个客户端建立虚拟连接
 
+使用说明
+=======
+
+本网关提供了一个命令行程序和一个包，命令行程序用来对外提供网关服务，包则用来实现和网关配套的客户端和服务端。
+
+网关程序支持以下命令行参数：
+
+| 参数名 | 说明 | 默认值 |
+| --- | --- | --- |
+| ReusePort | 是否开启reuseport特性 | false |
+| MaxPacketSize | 最大的消息包体积 | 512K |
+| MemPoolSize | Slab内存池的总内存大小 | 10M |
+| MemPoolFactor | Slab内存池的Chunk递增指数 | 2 |
+| MemPoolMaxChunk | Slab内存池中最大的Chunk大小 | 64K |
+| MemPoolMinChunk | Slab内存池中最小的Chunk大小 | 64B |
+| ClientAddr | 网关暴露给客户端的地址 | ":0" |
+| ClientMaxConn | 每个客户端可以创建的最大虚拟连接数 | 8 |
+| ClientBufferSize | 每个客户端连接使用的 bufio.Reader 缓冲区大小 | 2K |
+| ClientPingInterval | 网关在多少秒没收到客户端消息后发送PING指令给客户端 | 30秒 |
+| ClientSendChanSize | 每个客户端连接异步发送消息用的chan缓冲区大小 | 1千 |
+| ServerAddr | 网关暴露给服务端的地址 | ":0" |
+| ServerAuthPassword | 用于验证服务端合法性的秘钥 | 空 |
+| ServerAuthTimeout | 验证服务端连接时的最大IO等待时间 | 3秒 |
+| ServerBufferSize | 每个服务端连接使用的 bufio.Reader 缓冲区大小 | 64K |
+| ServerPingInterval | 网关在多少秒没收到客户端消息后发送PING指令给客户端 | 30秒 |
+| ServerSendChanSize | 每个服务端连接异步发送消息用的chan缓冲区大小 | 10万 |
+
+调用示例
+=======
+
+调用示例1 - 以客户端身份连接到网关：
+
+```go
+client, err := DialClient(
+	GatewayAddr,   // 网关地址
+	MyMsgFormat,   // 消息格式
+	MyMemPool,     // 内存池
+	MaxPacketSize, // 包体积限制
+	BufferSize,    // 预读所用的缓冲区大小
+	SendChanSize,  // 异步发送用的chan缓冲区大小
+)
+```
+
+调用示例2 - 以服务端身份连接到网关：
+
+```go
+server, err := DialServer(
+	GatewayAddr,   // 网关地址
+	MyMsgFormat,   // 消息格式
+	MyMemPool,     // 内存池
+	ServerID,      // 服务端ID
+	AuthKey,       // 身份验证用的Key
+	AuthTimeout,   // 身份验证IO等待超时时间
+	MaxPacketSize, // 包体积限制
+	BufferSize,    // 预读所用的缓冲区大小
+	SendChanSize,  // 异步发送用的chan缓冲区大小
+)
+```
+
+调用示例3 - 创建一个虚拟连接：
+
+```go
+conn, connID, err := client.Dial(ServerID)
+```
+
+调用示例4 - 接收一个虚拟连接：
+
+```go
+conn, connID, clientID, err := server.Accept()
+```
+
+调用示例5 - 以JSON格式发送一个消息：
+
+```go
+var my MyMessage
+buf, err := json.Marshal(&msg)
+conn.Send(&buf)
+```
+
+调用示例6 - 以JSON格式接收一个消息：
+
+```go
+var my MyMessage
+buf, err := conn.Receive()
+json.Unmarshal(*(buf.(*[]byte)), &my)
+```
+
+**注意：虚拟连接所用的消息类型是`*[]byte`。**
+
 通讯协议
 =======
 
@@ -172,89 +261,3 @@
 +-----------+-----------+
    16 byte      4 byte
 ```
-
-使用说明
-=======
-
-本网关提供了命令行程序和协议库，命令行程序用来对外提供网关服务，库则用来实现和网关配套的客户端和服务端。
-
-网关命程序支持以下命令行参数：
-
-| 参数名 | 说明 | 默认值 |
-| --- | --- | --- |
-| ReusePort | 是否开启reuseport特性 | false |
-| MaxPacketSize | 最大的消息包体积 | 512K |
-| MemPoolSize | Slab内存池的总内存大小 | 10M |
-| MemPoolFactor | Slab内存池的Chunk递增指数 | 2 |
-| MemPoolMaxChunk | Slab内存池中最大的Chunk大小 | 64K |
-| MemPoolMinChunk | Slab内存池中最小的Chunk大小 | 64B |
-| ClientAddr | 网关暴露给客户端的地址 | ":0" |
-| ClientMaxConn | 每个客户端可以创建的最大虚拟连接数 | 8 |
-| ClientBufferSize | 每个客户端连接使用的 bufio.Reader 缓冲区大小 | 2K |
-| ClientPingInterval | 网关在多少秒没收到客户端消息后发送PING指令给客户端 | 30秒 |
-| ClientSendChanSize | 每个客户端连接异步发送消息用的chan缓冲区大小 | 1千 |
-| ServerAddr | 网关暴露给服务端的地址 | ":0" |
-| ServerAuthPassword | 用于验证服务端合法性的秘钥 | 空 |
-| ServerAuthTimeout | 验证服务端连接时的最大IO等待时间 | 3秒 |
-| ServerBufferSize | 每个服务端连接使用的 bufio.Reader 缓冲区大小 | 64K |
-| ServerPingInterval | 网关在多少秒没收到客户端消息后发送PING指令给客户端 | 30秒 |
-| ServerSendChanSize | 每个服务端连接异步发送消息用的chan缓冲区大小 | 10万 |
-
-库示例1 - 以客户端身份连接到网关：
-
-```go
-client, err := DialClient(
-	GatewayAddr,   // 网关地址
-	MyMsgFormat,   // 消息格式
-	MyMemPool,     // 内存池
-	MaxPacketSize, // 包体积限制
-	BufferSize,    // 预读所用的缓冲区大小
-	SendChanSize,  // 异步发送用的chan缓冲区大小
-)
-```
-
-库示例2 - 以服务端身份连接到网关：
-
-```go
-server, err := DialServer(
-	GatewayAddr,   // 网关地址
-	MyMsgFormat,   // 消息格式
-	MyMemPool,     // 内存池
-	ServerID,      // 服务端ID
-	AuthKey,       // 身份验证用的Key
-	AuthTimeout,   // 身份验证IO等待超时时间
-	MaxPacketSize, // 包体积限制
-	BufferSize,    // 预读所用的缓冲区大小
-	SendChanSize,  // 异步发送用的chan缓冲区大小
-)
-```
-
-库示例3 - 创建一个虚拟连接：
-
-```go
-conn, connID, err := client.Dial(ServerID)
-```
-
-库示例4 - 接收一个虚拟连接：
-
-```go
-conn, connID, clientID, err := server.Accept()
-```
-
-库示例5 - 以JSON格式发送一个消息：
-
-```go
-var my MyMessage
-buf, err := json.Marshal(&msg)
-conn.Send(&buf)
-```
-
-示例6 - 以JSON格式接收一个消息：
-
-```go
-var my MyMessage
-buf, err := conn.Receive()
-json.Unmarshal(*(buf.(*[]byte)), &my)
-```
-
-**注意：虚拟连接所用的消息类型是`*[]byte`。**
