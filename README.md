@@ -1,4 +1,6 @@
 [![Foundation](https://img.shields.io/badge/Golang-Foundation-green.svg)](http://golangfoundation.org)
+[![Build Status](https://travis-ci.org/fast/fastway.svg?branch=master)](https://travis-ci.org/fast/fastway)
+[![codecov](https://codecov.io/gh/fast/fastway/branch/master/graph/badge.svg)](https://codecov.io/gh/fast/fastway)
 
 简介
 ====
