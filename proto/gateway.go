@@ -147,6 +147,7 @@ func (g *Gateway) newSessionState(id uint32, session *link.Session, pingInterval
 	gs := &gwState{
 		id:           id,
 		session:      session,
+		gateway:      g,
 		health:       2,
 		pingTimer:    time.NewTimer(pingInterval),
 		disposeChan:  make(chan struct{}),
