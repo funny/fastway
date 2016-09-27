@@ -39,6 +39,7 @@
 | ReusePort | 是否开启reuseport特性 | false |
 | MaxPacketSize | 最大的消息包体积 | 512K |
 | MemPoolSize | Slab内存池的总内存大小 | 10M |
+| MemPoolType | Slab内存池类型 (sync或chan) | sync |
 | MemPoolFactor | Slab内存池的Chunk递增指数 | 2 |
 | MemPoolMaxChunk | Slab内存池中最大的Chunk大小 | 64K |
 | MemPoolMinChunk | Slab内存池中最小的Chunk大小 | 64B |
