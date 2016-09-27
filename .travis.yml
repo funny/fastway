@@ -10,8 +10,8 @@ install:
 script:
     - go vet -x
     - go vet -x github.com/fast/fastway/proto
-	- go install
-	- go install github.com/fast/fastway/proto
+    - go install
+    - go install github.com/fast/fastway/proto
     - go test -covermode=count -coverprofile=profile.cov -v github.com/fast/fastway/proto
 
 after_script:
