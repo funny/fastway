@@ -5,15 +5,14 @@ go:
 
 install:
     - go get github.com/mattn/goveralls
-    - go get github.com/funny/utest
-    - go get -d -v ./...
+    - go get -t -v ./...
 
 script:
     - go vet -x
     - go vet -x github.com/fast/fastway/proto
     - go install
     - go install github.com/fast/fastway/proto
-    - go test -covermode=count -coverprofile=profile.cov -v github.com/fast/fastway/proto
+    - go test -race -coverprofile=coverage.txt -covermode=atomic -v github.com/fast/fastway/proto
 
-after_script:
-    - $HOME/gopath/bin/goveralls -coverprofile=profile.cov -service=travis-ci
+after_success:
+    - bash <(curl -s https://codecov.io/bash)
