@@ -98,3 +98,49 @@ func Test_VirtualCodec(t *testing.T) {
 		utest.EqualNow(t, buffer1, *(buffer3.(*[]byte)))
 	}
 }
+
+func Test_BadCodec(t *testing.T) {
+	conn, err := net.Dial("tcp", TestAddr)
+	utest.IsNilNow(t, err)
+
+	codec := TestProto.newCodec(conn, 1024)
+	_, err = conn.Write([]byte{255, 0, 0, 0})
+	utest.IsNilNow(t, err)
+	codec.reader.ReadByte()
+	codec.reader.UnreadByte()
+	conn.Close()
+
+	msg, err := codec.Receive()
+	utest.IsNilNow(t, msg)
+	utest.NotNilNow(t, err)
+
+	conn, err = net.Dial("tcp", TestAddr)
+	utest.IsNilNow(t, err)
+
+	codec = TestProto.newCodec(conn, 1024)
+	_, err = conn.Write([]byte{255, 255, 255, 255})
+	utest.IsNilNow(t, err)
+
+	msg, err = codec.Receive()
+	utest.IsNilNow(t, msg)
+	utest.NotNilNow(t, err)
+	utest.EqualNow(t, err, ErrTooLargePacket)
+}
+
+func Test_BadVirtualCodec(t *testing.T) {
+	conn, err := net.Dial("tcp", TestAddr)
+	utest.IsNilNow(t, err)
+	defer conn.Close()
+
+	codec := TestProto.newCodec(conn, 1024)
+	pconn := link.NewSession(codec, 1000)
+	vcodec := TestProto.newVirtualCodec(pconn, 123)
+
+	bigMsg := make([]byte, TestProto.maxPacketSize+1)
+	err = vcodec.Send(&bigMsg)
+	utest.NotNilNow(t, err)
+	utest.EqualNow(t, err, ErrTooLargePacket)
+
+	vcodec.recvChan <- bigMsg
+	vcodec.Close()
+}

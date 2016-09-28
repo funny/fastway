@@ -236,3 +236,25 @@ func Test_BadClients(t *testing.T) {
 	conn.Write(TestProto.encodeRefuseCmd(0))
 	conn.Close()
 }
+
+func Test_BadEndpoint(t *testing.T) {
+	lsn1, err := net.Listen("tcp", ":0")
+	utest.IsNilNow(t, err)
+
+	lsn2, err := net.Listen("tcp", ":0")
+	utest.IsNilNow(t, err)
+
+	gw := NewGateway(TestPool, 2048)
+
+	go gw.ServeClients(lsn1, 10000, 1024, 1024, 30*time.Second)
+	go gw.ServeServers(lsn2, "123", 3, 1024, 1024, 30*time.Second)
+
+	_, err = DialClient(":0", TestPool, 2048, 1024, 1024)
+	utest.NotNilNow(t, err)
+
+	server, _ := DialServer(lsn2.Addr().String(), TestPool, 123, "bad key", 3, 2048, 1024, 1024)
+	utest.NotNilNow(t, server)
+	var x = []byte{0, 0, 0}
+	_, err = server.session.Codec().(*codec).conn.Read(x)
+	utest.NotNilNow(t, err)
+}
