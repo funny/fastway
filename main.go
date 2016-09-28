@@ -15,7 +15,7 @@ import (
 var (
 	reusePort       = flag.Bool("ReusePort", false, "Enable/disable the reuseport feature.")
 	maxPacketSize   = flag.Int("MaxPacketSize", 512*1024, "Limit max packet size.")
-	memPoolType     = flag.String("MemPoolType", "sync", "Type of memory pool (sync / chan).")
+	memPoolType     = flag.String("MemPoolType", "atom", "Type of memory pool (sync | atom | chan).")
 	memPoolSize     = flag.Int("MemPoolSize", 10*1024*1024, "Size of memory pool.")
 	memPoolFactor   = flag.Int("MemPoolFactor", 2, "Growth in chunk size of memory pool.")
 	memPoolMinChunk = flag.Int("MemPoolMinChunk", 64, "Smallest chunk size of memory pool.")
@@ -44,6 +44,8 @@ func main() {
 	switch *memPoolType {
 	case "sync":
 		pool = slab.NewSyncPool(*memPoolMinChunk, *memPoolMaxChunk, *memPoolFactor)
+	case "atom":
+		pool = slab.NewAtomPool(*memPoolMinChunk, *memPoolMaxChunk, *memPoolFactor, *memPoolSize)
 	case "chan":
 		pool = slab.NewChanPool(*memPoolMinChunk, *memPoolMaxChunk, *memPoolFactor, *memPoolSize)
 	default:
