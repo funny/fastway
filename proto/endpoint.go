@@ -179,47 +179,7 @@ func (p *Endpoint) loop() {
 		connID := p.decodePacket(buf)
 
 		if connID == 0 {
-			cmd := p.decodeCmd(buf)
-			switch cmd {
-			case openCmd:
-				connID := p.decodeOpenCmd(buf)
-				p.free(buf)
-				select {
-				case p.newConnChan <- connID:
-				case <-p.closeChan:
-					return
-				}
-
-			case refuseCmd:
-				connID := p.decodeRefuseCmd(buf)
-				p.free(buf)
-				select {
-				case p.dialChan <- vconn{nil, connID, 0}:
-				case <-p.closeChan:
-					return
-				}
-
-			case acceptCmd:
-				connID, remoteID := p.decodeAcceptCmd(buf)
-				p.free(buf)
-				p.addVirtualConn(connID, remoteID)
-
-			case closeCmd:
-				connID := p.decodeCloseCmd(buf)
-				p.free(buf)
-				vconn := p.virtualConns.Get(connID)
-				if vconn != nil {
-					vconn.Close()
-				}
-
-			case pingCmd:
-				p.free(buf)
-				p.send(p.session, p.encodePingCmd())
-
-			default:
-				p.free(buf)
-				panic("unsupported command")
-			}
+			p.processCmd(buf)
 			continue
 		}
 
@@ -234,5 +194,49 @@ func (p *Endpoint) loop() {
 		}
 		p.free(buf)
 		p.send(p.session, p.encodeCloseCmd(connID))
+	}
+}
+
+func (p *Endpoint) processCmd(buf []byte) {
+	cmd := p.decodeCmd(buf)
+	switch cmd {
+	case openCmd:
+		connID := p.decodeOpenCmd(buf)
+		p.free(buf)
+		select {
+		case p.newConnChan <- connID:
+		case <-p.closeChan:
+			return
+		}
+
+	case refuseCmd:
+		connID := p.decodeRefuseCmd(buf)
+		p.free(buf)
+		select {
+		case p.dialChan <- vconn{nil, connID, 0}:
+		case <-p.closeChan:
+			return
+		}
+
+	case acceptCmd:
+		connID, remoteID := p.decodeAcceptCmd(buf)
+		p.free(buf)
+		p.addVirtualConn(connID, remoteID)
+
+	case closeCmd:
+		connID := p.decodeCloseCmd(buf)
+		p.free(buf)
+		vconn := p.virtualConns.Get(connID)
+		if vconn != nil {
+			vconn.Close()
+		}
+
+	case pingCmd:
+		p.free(buf)
+		p.send(p.session, p.encodePingCmd())
+
+	default:
+		p.free(buf)
+		panic("unsupported command")
 	}
 }

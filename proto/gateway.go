@@ -189,7 +189,7 @@ L:
 		select {
 		case <-gs.gateway.timer.After(pingInterval):
 			lastActive := atomic.LoadInt64(&gs.lastActive)
-			if time.Now().Unix()-lastActive < int64(pingInterval) {
+			if time.Now().UnixNano()-lastActive < int64(pingInterval) {
 				continue
 			}
 
@@ -231,7 +231,7 @@ func (g *Gateway) handleSession(id uint32, session *link.Session, side, maxConn 
 	otherSide := (side + 1) % 2
 
 	for {
-		atomic.StoreInt64(&state.lastActive, time.Now().Unix())
+		atomic.StoreInt64(&state.lastActive, time.Now().UnixNano())
 
 		buf, err := session.Receive()
 		if err != nil {
