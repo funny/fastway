@@ -206,3 +206,33 @@ L:
 
 	gw.Stop()
 }
+
+func Test_BadClients(t *testing.T) {
+	lsn1, err := net.Listen("tcp", ":0")
+	utest.IsNilNow(t, err)
+
+	lsn2, err := net.Listen("tcp", ":0")
+	utest.IsNilNow(t, err)
+
+	gw := NewGateway(TestPool, 2048)
+
+	go gw.ServeClients(lsn1, 10000, 1024, 1024, 30*time.Second)
+	go gw.ServeServers(lsn2, "123", 3, 1024, 1024, 30*time.Second)
+
+	time.Sleep(time.Second)
+
+	conn, err := net.Dial("tcp", lsn1.Addr().String())
+	utest.IsNilNow(t, err)
+	conn.Write([]byte{0, 0, 0})
+	conn.Close()
+
+	conn, err = net.Dial("tcp", lsn2.Addr().String())
+	utest.IsNilNow(t, err)
+	conn.Write([]byte{0, 0, 0})
+	conn.Close()
+
+	conn, err = net.Dial("tcp", lsn1.Addr().String())
+	utest.IsNilNow(t, err)
+	conn.Write(TestProto.encodeRefuseCmd(0))
+	conn.Close()
+}
