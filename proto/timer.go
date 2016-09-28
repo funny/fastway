@@ -1,7 +1,7 @@
 package proto
 
 //
-// This code writen by https://github.com/siddontang
+// This code written by https://github.com/siddontang
 // Copy from https://github.com/siddontang/go/blob/master/timingwheel/timingwheel.go
 //
 

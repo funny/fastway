@@ -198,6 +198,8 @@ L:
 				break L
 			}
 			session.Codec().(*codec).conn.SetWriteDeadline(time.Time{})
+		case <-gs.pingChan:
+			continue
 		case <-gs.disposeChan:
 			break L
 		}
@@ -229,12 +231,12 @@ func (g *Gateway) handleSession(id uint32, session *link.Session, side, maxConn 
 	otherSide := (side + 1) % 2
 
 	for {
+		atomic.StoreInt64(&state.lastActive, time.Now().Unix())
+
 		buf, err := session.Receive()
 		if err != nil {
 			return
 		}
-
-		atomic.StoreInt64(&state.lastActive, time.Now().Unix())
 
 		msg := *(buf.(*[]byte))
 		connID := g.decodePacket(msg)
