@@ -137,6 +137,7 @@ type gwState struct {
 	session      *link.Session
 	pingTimer    *time.Timer
 	health       int
+	watchChan    chan struct{}
 	disposeChan  chan struct{}
 	disposeOnce  sync.Once
 	disposed     bool
@@ -149,6 +150,7 @@ func (g *Gateway) newSessionState(id uint32, session *link.Session, pingInterval
 		session:      session,
 		gateway:      g,
 		health:       2,
+		watchChan:    make(chan struct{}),
 		pingTimer:    time.NewTimer(pingInterval),
 		disposeChan:  make(chan struct{}),
 		virtualConns: make(map[uint32]struct{}),
@@ -190,6 +192,10 @@ L:
 			}
 			if gs.gateway.send(gs.session, gs.gateway.encodePingCmd()) != nil {
 				break L
+			}
+		case <-gs.watchChan:
+			if gs.health < 2 {
+				gs.health++
 			}
 		case <-gs.disposeChan:
 			break L
@@ -275,9 +281,7 @@ func (g *Gateway) processCmd(msg []byte, session *link.Session, state *gwState, 
 
 	case pingCmd:
 		g.free(msg)
-		if state.health < 2 {
-			state.health++
-		}
+		state.watchChan <- struct{}{}
 
 	default:
 		g.free(msg)
