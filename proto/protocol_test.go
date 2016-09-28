@@ -220,3 +220,27 @@ func Test_BadSession(t *testing.T) {
 	err = TestProto.send(session, TestProto.encodePingCmd())
 	utest.NotNilNow(t, err)
 }
+
+func Test_BadHandshake(t *testing.T) {
+	lsn1, err := net.Listen("tcp", ":0")
+	utest.IsNilNow(t, err)
+	defer lsn1.Close()
+
+	go func() {
+		lsn1.Accept()
+	}()
+	conn1, err := net.Dial("tcp", lsn1.Addr().String())
+	utest.IsNilNow(t, err)
+	defer conn1.Close()
+	err = TestProto.serverInit(conn1, 1, []byte("1"), time.Second)
+	utest.NotNilNow(t, err)
+
+	go func() {
+		net.Dial("tcp", lsn1.Addr().String())
+	}()
+	conn2, err := lsn1.Accept()
+	utest.IsNilNow(t, err)
+	defer conn2.Close()
+	_, err = TestProto.serverAuth(conn2, []byte("1"), time.Second)
+	utest.NotNilNow(t, err)
+}

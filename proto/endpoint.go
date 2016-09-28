@@ -136,6 +136,7 @@ func (p *Endpoint) Dial(remoteID uint32) (*link.Session, uint32, error) {
 	return conn.Session, conn.ConnID, nil
 }
 
+// Close endpoint.
 func (p *Endpoint) Close() {
 	p.closeOnce.Do(func() {
 		p.session.Close()
