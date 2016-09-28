@@ -166,8 +166,7 @@ func (p *Endpoint) loop() {
 	defer func() {
 		p.Close()
 		if err := recover(); err != nil {
-			log.Printf("fast/gateway.Endpoint panic - %v", err)
-			debug.PrintStack()
+			log.Printf("fast/gateway.Endpoint panic: %v\n%s", err, debug.Stack())
 		}
 	}()
 	for {

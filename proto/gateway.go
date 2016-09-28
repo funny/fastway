@@ -18,6 +18,7 @@ const connBuckets = 32
 // Gateway implements gateway protocol.
 type Gateway struct {
 	protocol
+	timer   *timingWheel
 	servers [2]*link.Server
 
 	physicalConnID uint32
@@ -34,6 +35,7 @@ func NewGateway(pool slab.Pool, maxPacketSize int) *Gateway {
 
 	gateway.pool = pool
 	gateway.maxPacketSize = maxPacketSize
+	gateway.timer = newTimingWheel(time.Second, 1800)
 
 	for i := 0; i < connBuckets; i++ {
 		gateway.virtualConns[i] = make(map[uint32][2]*link.Session)
@@ -94,9 +96,6 @@ func (g *Gateway) ServeClients(lsn net.Listener, maxConn, bufferSize, sendChanSi
 	}), sendChanSize)
 
 	g.servers[0].Serve(link.HandlerFunc(func(session *link.Session, ctx link.Context, err error) {
-		if err != nil {
-			return
-		}
 		g.handleSession(atomic.AddUint32(&g.physicalConnID, 1), session, 0, maxConn, pingInterval)
 	}))
 }
@@ -128,6 +127,7 @@ func (g *Gateway) ServeServers(lsn net.Listener, key string, authTimeout, buffer
 func (g *Gateway) Stop() {
 	g.servers[0].Stop()
 	g.servers[1].Stop()
+	g.timer.Stop()
 }
 
 type gwState struct {
@@ -136,7 +136,8 @@ type gwState struct {
 	gateway      *Gateway
 	session      *link.Session
 	pingTimer    *time.Timer
-	health       int
+	lastActive   int64
+	pingChan     chan struct{}
 	watchChan    chan struct{}
 	disposeChan  chan struct{}
 	disposeOnce  sync.Once
@@ -149,13 +150,13 @@ func (g *Gateway) newSessionState(id uint32, session *link.Session, pingInterval
 		id:           id,
 		session:      session,
 		gateway:      g,
-		health:       2,
 		watchChan:    make(chan struct{}),
 		pingTimer:    time.NewTimer(pingInterval),
+		pingChan:     make(chan struct{}),
 		disposeChan:  make(chan struct{}),
 		virtualConns: make(map[uint32]struct{}),
 	}
-	go gs.watcher()
+	go gs.watcher(session, pingInterval)
 	return gs
 }
 
@@ -182,21 +183,29 @@ func (gs *gwState) Dispose() {
 	})
 }
 
-func (gs *gwState) watcher() {
+func (gs *gwState) watcher(session *link.Session, pingInterval time.Duration) {
 L:
 	for {
 		select {
-		case <-gs.pingTimer.C:
-			if gs.health--; gs.health <= 0 {
-				break L
+		case <-gs.gateway.timer.After(pingInterval):
+			lastActive := atomic.LoadInt64(&gs.lastActive)
+			if time.Now().Unix()-lastActive < int64(pingInterval) {
+				continue
 			}
+
+			session.Codec().(*codec).conn.SetWriteDeadline(time.Now().Add(pingInterval))
 			if gs.gateway.send(gs.session, gs.gateway.encodePingCmd()) != nil {
 				break L
 			}
-		case <-gs.watchChan:
-			if gs.health < 2 {
-				gs.health++
-			}
+			session.Codec().(*codec).conn.SetWriteDeadline(time.Time{})
+		case <-gs.disposeChan:
+			break L
+		}
+
+		select {
+		case <-gs.pingChan:
+		case <-gs.gateway.timer.After(pingInterval):
+			break L
 		case <-gs.disposeChan:
 			break L
 		}
@@ -213,8 +222,7 @@ func (g *Gateway) handleSession(id uint32, session *link.Session, side, maxConn 
 		state.Dispose()
 
 		if err := recover(); err != nil {
-			log.Printf("fast/gateway.Gateway panic - %v", err)
-			debug.PrintStack()
+			log.Printf("fast/gateway.Gateway panic: %v\n%s", err, debug.Stack())
 		}
 	}()
 
@@ -226,7 +234,7 @@ func (g *Gateway) handleSession(id uint32, session *link.Session, side, maxConn 
 			return
 		}
 
-		state.pingTimer.Reset(pingInterval)
+		atomic.StoreInt64(&state.lastActive, time.Now().Unix())
 
 		msg := *(buf.(*[]byte))
 		connID := g.decodePacket(msg)
@@ -280,8 +288,8 @@ func (g *Gateway) processCmd(msg []byte, session *link.Session, state *gwState, 
 		g.closeVirtualConn(connID)
 
 	case pingCmd:
+		state.pingChan <- struct{}{}
 		g.free(msg)
-		state.watchChan <- struct{}{}
 
 	default:
 		g.free(msg)

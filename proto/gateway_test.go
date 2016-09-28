@@ -254,8 +254,8 @@ func Test_BadEndpoint(t *testing.T) {
 
 	gw := NewGateway(TestPool, 2048)
 
-	go gw.ServeClients(lsn1, 10000, 1024, 1024, 1*time.Second)
-	go gw.ServeServers(lsn2, "123", 3, 1024, 1024, 1*time.Second)
+	go gw.ServeClients(lsn1, 10000, 1024, 1024, time.Second)
+	go gw.ServeServers(lsn2, "123", 3, 1024, 1024, time.Second)
 
 	// bad remote ID
 	client, err := DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 1024)
@@ -271,9 +271,12 @@ func Test_BadEndpoint(t *testing.T) {
 	utest.NotNilNow(t, err)
 
 	// gateway ping
+	conn, err := net.Dial("tcp", lsn1.Addr().String())
+	utest.IsNilNow(t, err)
+	defer conn.Close()
 	_, err = DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 1024)
 	utest.IsNilNow(t, err)
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 4)
 
 	// bad key
 	server, _ := DialServer(lsn2.Addr().String(), TestPool, 123, "bad key", 1, 2048, 1024, 1024)
