@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/funny/link"
 	"github.com/funny/utest"
 )
 
@@ -205,4 +206,17 @@ func Test_ServerHandshake(t *testing.T) {
 	serverID, err := TestProto.serverAuth(conn, []byte("test"), time.Second*3)
 	utest.IsNilNow(t, err)
 	utest.EqualNow(t, serverID, 123)
+}
+
+func Test_BadSession(t *testing.T) {
+	conn, err := net.Dial("tcp", TestAddr)
+	utest.IsNilNow(t, err)
+	defer conn.Close()
+
+	codec := TestProto.newCodec(conn, 1024)
+	session := link.NewSession(codec, 10)
+	session.Close()
+
+	err = TestProto.send(session, TestProto.encodePingCmd())
+	utest.NotNilNow(t, err)
 }

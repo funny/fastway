@@ -2,6 +2,7 @@ package proto
 
 import (
 	"errors"
+	"io"
 	"log"
 	"net"
 	"runtime/debug"
@@ -71,6 +72,8 @@ type Endpoint struct {
 	dialChan     chan vconn
 	acceptChan   chan vconn
 	virtualConns *link.Uint32Channel
+	closeChan    chan struct{}
+	closeOnce    sync.Once
 }
 
 func newEndpoint(pool slab.Pool, maxPacketSize int) *Endpoint {
@@ -82,13 +85,18 @@ func newEndpoint(pool slab.Pool, maxPacketSize int) *Endpoint {
 		newConnChan:  make(chan uint32),
 		acceptChan:   make(chan vconn),
 		virtualConns: link.NewUint32Channel(),
+		closeChan:    make(chan struct{}),
 	}
 }
 
 // Accept accept a virtual connection.
 func (p *Endpoint) Accept() (session *link.Session, connID, remoteID uint32, err error) {
-	conn := <-p.acceptChan
-	return conn.Session, conn.ConnID, conn.RemoteID, nil
+	select {
+	case conn := <-p.acceptChan:
+		return conn.Session, conn.ConnID, conn.RemoteID, nil
+	case <-p.closeChan:
+		return nil, 0, 0, io.EOF
+	}
 }
 
 // Dial create a virtual connection and dial to a remote endpoint.
@@ -100,22 +108,39 @@ func (p *Endpoint) Dial(remoteID uint32) (*link.Session, uint32, error) {
 		return nil, 0, err
 	}
 
-	connID := <-p.newConnChan
+	var connID uint32
+	select {
+	case connID = <-p.newConnChan:
+	case <-p.closeChan:
+		return nil, 0, io.EOF
+	}
 	if connID == 0 {
 		return nil, 0, ErrRefused
 	}
 
+	var conn vconn
 	p.dialChan = make(chan vconn, 1)
 	if err := p.send(p.session, p.encodeDialCmd(connID, remoteID)); err != nil {
 		return nil, 0, err
 	}
-	conn := <-p.dialChan
+	select {
+	case conn = <-p.dialChan:
+	case <-p.closeChan:
+		return nil, 0, io.EOF
+	}
 	p.dialChan = nil
 
 	if conn.Session == nil {
 		return nil, 0, ErrRefused
 	}
 	return conn.Session, conn.ConnID, nil
+}
+
+func (p *Endpoint) Close() {
+	p.closeOnce.Do(func() {
+		p.session.Close()
+		close(p.closeChan)
+	})
 }
 
 func (p *Endpoint) addVirtualConn(connID, remoteID uint32) {
@@ -130,6 +155,7 @@ func (p *Endpoint) addVirtualConn(connID, remoteID uint32) {
 
 	select {
 	case p.acceptChan <- vconn{session, connID, remoteID}:
+	case <-p.closeChan:
 	default:
 		p.send(p.session, p.encodeCloseCmd(connID))
 	}
@@ -137,6 +163,7 @@ func (p *Endpoint) addVirtualConn(connID, remoteID uint32) {
 
 func (p *Endpoint) loop() {
 	defer func() {
+		p.Close()
 		if err := recover(); err != nil {
 			log.Printf("fast/gateway.Endpoint panic - %v", err)
 			debug.PrintStack()
@@ -157,12 +184,20 @@ func (p *Endpoint) loop() {
 			case openCmd:
 				connID := p.decodeOpenCmd(buf)
 				p.free(buf)
-				p.newConnChan <- connID
+				select {
+				case p.newConnChan <- connID:
+				case <-p.closeChan:
+					return
+				}
 
 			case refuseCmd:
 				connID := p.decodeRefuseCmd(buf)
 				p.free(buf)
-				p.dialChan <- vconn{nil, connID, 0}
+				select {
+				case p.dialChan <- vconn{nil, connID, 0}:
+				case <-p.closeChan:
+					return
+				}
 
 			case acceptCmd:
 				connID, remoteID := p.decodeAcceptCmd(buf)

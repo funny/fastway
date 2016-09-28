@@ -28,11 +28,12 @@ func (p *protocol) free(msg []byte) {
 }
 
 func (p *protocol) send(session *link.Session, msg []byte) error {
-	if err := session.Send(&msg); err != nil {
+	err := session.Send(&msg)
+	if err != nil {
 		p.free(msg)
 		session.Close()
 	}
-	return nil
+	return err
 }
 
 const (
