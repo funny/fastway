@@ -16,10 +16,10 @@ var (
 	reusePort       = flag.Bool("ReusePort", false, "Enable/Disable the reuseport feature.")
 	maxPacketSize   = flag.Int("MaxPacketSize", 512*1024, "Limit max packet size.")
 	memPoolType     = flag.String("MemPoolType", "atom", "Type of memory pool ('sync', 'atom' or 'chan').")
-	memPoolSize     = flag.Int("MemPoolSize", 10*1024*1024, "Size of memory pool.")
-	memPoolFactor   = flag.Int("MemPoolFactor", 2, "Growth in chunk size of memory pool.")
-	memPoolMinChunk = flag.Int("MemPoolMinChunk", 64, "Smallest chunk size of memory pool.")
-	memPoolMaxChunk = flag.Int("MemPoolMaxChunk", 64*1024, "Largest chunk size of memory pool.")
+	memPoolFactor   = flag.Int("MemPoolFactor", 2, "Growth in chunk size in memory pool.")
+	memPoolMinChunk = flag.Int("MemPoolMinChunk", 64, "Smallest chunk size in memory pool.")
+	memPoolMaxChunk = flag.Int("MemPoolMaxChunk", 64*1024, "Largest chunk size in memory pool.")
+	memPoolPageSize = flag.Int("MemPoolPageSize", 1024*1024, "Size of each slab in memory pool.")
 
 	clientAddr         = flag.String("ClientAddr", ":0", "The gateway address where clients connect to.")
 	clientMaxConn      = flag.Int("ClientMaxConn", 8, "Limit max virtual connections for each client.")
@@ -47,9 +47,9 @@ func main() {
 	case "sync":
 		pool = slab.NewSyncPool(*memPoolMinChunk, *memPoolMaxChunk, *memPoolFactor)
 	case "atom":
-		pool = slab.NewAtomPool(*memPoolMinChunk, *memPoolMaxChunk, *memPoolFactor, *memPoolSize)
+		pool = slab.NewAtomPool(*memPoolMinChunk, *memPoolMaxChunk, *memPoolFactor, *memPoolPageSize)
 	case "chan":
-		pool = slab.NewChanPool(*memPoolMinChunk, *memPoolMaxChunk, *memPoolFactor, *memPoolSize)
+		pool = slab.NewChanPool(*memPoolMinChunk, *memPoolMaxChunk, *memPoolFactor, *memPoolPageSize)
 	default:
 		println(`unsupported memory pool type, must be "sync", "atom" or "chan"`)
 	}

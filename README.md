@@ -38,11 +38,11 @@
 | --- | --- | --- |
 | ReusePort | 是否开启reuseport特性 | false |
 | MaxPacketSize | 最大的消息包体积 | 512K |
-| MemPoolSize | Slab内存池的总内存大小 | 10M |
 | MemPoolType | Slab内存池类型 (sync、atom或chan) | atom |
 | MemPoolFactor | Slab内存池的Chunk递增指数 | 2 |
 | MemPoolMaxChunk | Slab内存池中最大的Chunk大小 | 64K |
 | MemPoolMinChunk | Slab内存池中最小的Chunk大小 | 64B |
+| MemPoolPageSize | Slab内存池的每个Slab内存大小 | 1M |
 | ClientAddr | 网关暴露给客户端的地址 | ":0" |
 | ClientMaxConn | 每个客户端可以创建的最大虚拟连接数 | 8 |
 | ClientBufferSize | 每个客户端连接使用的 bufio.Reader 缓冲区大小 | 2K |
