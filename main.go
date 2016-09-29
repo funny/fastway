@@ -38,6 +38,10 @@ var (
 func main() {
 	flag.Parse()
 
+	if *serverSendChanSize <= 0 {
+		println("server send chan size must greater than zero.")
+	}
+
 	var pool slab.Pool
 	switch *memPoolType {
 	case "sync":
@@ -47,11 +51,7 @@ func main() {
 	case "chan":
 		pool = slab.NewChanPool(*memPoolMinChunk, *memPoolMaxChunk, *memPoolFactor, *memPoolSize)
 	default:
-		println(`unsupported memory pool type, must be "sync" or "chan"`)
-	}
-
-	if *serverSendChanSize <= 0 {
-		println("server send chan size must greater than zero.")
+		println(`unsupported memory pool type, must be "sync", "atom" or "chan"`)
 	}
 
 	gw := proto.NewGateway(pool, *maxPacketSize)
