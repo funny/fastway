@@ -56,14 +56,19 @@ func main() {
 
 	gw := proto.NewGateway(pool, *maxPacketSize)
 
-	go gw.ServeClients(
-		listen(*clientAddr, "client"), *clientMaxConn,
-		*clientBufferSize, *clientSendChanSize, *clientPingInterval,
+	go gw.ServeClients(listen("client", *clientAddr, *reusePort),
+		*clientMaxConn,
+		*clientBufferSize,
+		*clientSendChanSize,
+		*clientPingInterval,
 	)
 
-	go gw.ServeServers(
-		listen(*serverAddr, "server"), *serverAuthKey, *serverAuthTimeout,
-		*serverBufferSize, *serverSendChanSize, *serverPingInterval,
+	go gw.ServeServers(listen("server", *serverAddr, *reusePort),
+		*serverAuthKey,
+		*serverAuthTimeout,
+		*serverBufferSize,
+		*serverSendChanSize,
+		*serverPingInterval,
 	)
 
 	cmd.Shell("fastway")
@@ -71,20 +76,20 @@ func main() {
 	gw.Stop()
 }
 
-func listen(addr, forWho string) net.Listener {
+func listen(who, addr string, reuse bool) net.Listener {
 	var lsn net.Listener
 	var err error
 
-	if *reusePort {
+	if reuse {
 		lsn, err = reuseport.NewReusablePortListener("tcp", addr)
 	} else {
 		lsn, err = net.Listen("tcp", addr)
 	}
 
 	if err != nil {
-		log.Fatalf("setup %s listener at %s failed - %s", forWho, addr, err)
+		log.Fatalf("setup %s listener at %s failed - %s", who, addr, err)
 	}
 
-	log.Printf("setup %s listener at - %s", forWho, lsn.Addr())
+	log.Printf("setup %s listener at - %s", who, lsn.Addr())
 	return lsn
 }
