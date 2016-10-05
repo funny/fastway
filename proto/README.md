@@ -117,8 +117,12 @@ json.Unmarshal(*(buf.(*[]byte)), &msg)
 
 + 协议允许客户端主动连接服务端，也允许服务端主动连接客户端。
 + 新建虚拟连接的时候，网关会把虚拟连接信息发送给两端。
-+ 客户端连接服务端时，网关回发的`Accept`指令中`Remote ID`为服务端ID，发送给服务端的`Connect`指令中`Remote ID`为客户端ID。
-+ 服务端连接客户端时，网关回发的`Accept`指令中`Remote ID`为客户端ID，发送给客户端的`Connect`指令中`Remote ID`为服务端ID。
++ 客户端连接服务端时：
+	+ 网关回发的`Accept`指令中`Remote ID`为服务端ID
+	+ 发送给服务端的`Connect`指令中`Remote ID`为客户端ID。
++ 服务端连接客户端时：
+	+ 网关回发的`Accept`指令中`Remote ID`为客户端ID
+	+ 发送给客户端的`Connect`指令中`Remote ID`为服务端ID。
 
 握手协议
 =======
