@@ -126,15 +126,15 @@ func Test_GatewayParallel(t *testing.T) {
 
 	gw := NewGateway(TestPool, 2048)
 
-	go gw.ServeClients(lsn1, 10000, 1024, 1024, 30*time.Second)
-	go gw.ServeServers(lsn2, "123", 3, 1024, 1024, 30*time.Second)
+	go gw.ServeClients(lsn1, 10000, 1024, 10240, 30*time.Second)
+	go gw.ServeServers(lsn2, "123", 3, 1024, 10240, 30*time.Second)
 
 	time.Sleep(time.Second)
 
-	client, err := DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 1024)
+	client, err := DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 10240)
 	utest.IsNilNow(t, err)
 
-	server, err := DialServer(lsn2.Addr().String(), TestPool, 123, "123", 3, 2048, 1024, 1024)
+	server, err := DialServer(lsn2.Addr().String(), TestPool, 123, "123", 3, 2048, 1024, 10240)
 	utest.IsNilNow(t, err)
 
 	// make sure connection registered

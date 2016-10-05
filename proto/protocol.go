@@ -117,18 +117,7 @@ func (p *protocol) encodeAcceptCmd(connID, remoteID uint32) []byte {
 // ==================================================
 
 const (
-	refuseCmd     = 2
-	refuseCmdSize = cmdHeadSize
-)
-
-func (p *protocol) encodeRefuseCmd() []byte {
-	return p.allocCmd(refuseCmd, refuseCmdSize)
-}
-
-// ==================================================
-
-const (
-	connectCmd         = 3
+	connectCmd         = 2
 	connectCmdSize     = cmdHeadSize + cmdIDSize*2
 	connectCmdConnID   = cmdArgs
 	connectCmdRemoteID = connectCmdConnID + cmdIDSize
@@ -145,6 +134,17 @@ func (p *protocol) encodeConnectCmd(connID, remoteID uint32) []byte {
 	binary.LittleEndian.PutUint32(buffer[connectCmdConnID:], connID)
 	binary.LittleEndian.PutUint32(buffer[connectCmdRemoteID:], remoteID)
 	return buffer
+}
+
+// ==================================================
+
+const (
+	refuseCmd     = 3
+	refuseCmdSize = cmdHeadSize
+)
+
+func (p *protocol) encodeRefuseCmd() []byte {
+	return p.allocCmd(refuseCmd, refuseCmdSize)
 }
 
 // ==================================================

@@ -108,8 +108,8 @@ json.Unmarshal(*(buf.(*[]byte)), &msg)
 | ---- | ---- | ---- | ---- |
 | 0 | Dial | Remote ID | 创建虚拟连接 |
 | 1 | Accept | Conn ID + Remote ID | 由网关发送给虚拟连接创建者，告知虚拟连接创建成功 |
-| 2 | Refuse | 无 | 由网关发送给虚拟连接创建者，告知无法连接到远端 |
-| 3 | Connect | Conn ID + Remote ID | 由网关发送给虚拟连接的被连接方 |
+| 2 | Connect | Conn ID + Remote ID | 由网关发送给虚拟连接的被连接方 |
+| 3 | Refuse | 无 | 由网关发送给虚拟连接创建者，告知无法连接到远端 |
 | 4 | Close | Conn ID | 客户端、服务端、网关都有可能发送次消息 |
 | 5 | Ping | 无 | 网关下发给客户端和服务端，收到后应立即响应 |
 
