@@ -10,54 +10,6 @@ import (
 	"github.com/funny/utest"
 )
 
-func Test_NewCmd(t *testing.T) {
-	conn, err := net.Dial("tcp", TestAddr)
-	utest.IsNilNow(t, err)
-	defer conn.Close()
-
-	codec := TestProto.newCodec(conn, 1024)
-
-	for i := 0; i < 10000; i++ {
-		msg1 := TestProto.encodeNewCmd()
-
-		err := codec.Send(&msg1)
-		utest.IsNilNow(t, err)
-
-		msg2, err := codec.Receive()
-		utest.IsNilNow(t, err)
-
-		msg3 := *(msg2.(*[]byte))
-		cmd := TestProto.decodeCmd(msg3)
-		utest.EqualNow(t, cmd, newCmd)
-	}
-}
-
-func Test_OpenCmd(t *testing.T) {
-	conn, err := net.Dial("tcp", TestAddr)
-	utest.IsNilNow(t, err)
-	defer conn.Close()
-
-	codec := TestProto.newCodec(conn, 1024)
-
-	for i := 0; i < 10000; i++ {
-		connID1 := rand.Uint32()
-		msg1 := TestProto.encodeOpenCmd(connID1)
-
-		err := codec.Send(&msg1)
-		utest.IsNilNow(t, err)
-
-		msg2, err := codec.Receive()
-		utest.IsNilNow(t, err)
-
-		msg3 := *(msg2.(*[]byte))
-		cmd := TestProto.decodeCmd(msg3)
-		utest.EqualNow(t, cmd, openCmd)
-
-		connID2 := TestProto.decodeOpenCmd(msg3)
-		utest.EqualNow(t, connID1, connID2)
-	}
-}
-
 func Test_DialCmd(t *testing.T) {
 	conn, err := net.Dial("tcp", TestAddr)
 	utest.IsNilNow(t, err)
@@ -66,9 +18,8 @@ func Test_DialCmd(t *testing.T) {
 	codec := TestProto.newCodec(conn, 1024)
 
 	for i := 0; i < 10000; i++ {
-		connID1 := rand.Uint32()
 		remoteID1 := rand.Uint32()
-		msg1 := TestProto.encodeDialCmd(connID1, remoteID1)
+		msg1 := TestProto.encodeDialCmd(remoteID1)
 
 		err := codec.Send(&msg1)
 		utest.IsNilNow(t, err)
@@ -80,8 +31,7 @@ func Test_DialCmd(t *testing.T) {
 		cmd := TestProto.decodeCmd(msg3)
 		utest.EqualNow(t, cmd, dialCmd)
 
-		connID2, remoteID2 := TestProto.decodeDialCmd(msg3)
-		utest.EqualNow(t, connID2, connID2)
+		remoteID2 := TestProto.decodeDialCmd(msg3)
 		utest.EqualNow(t, remoteID1, remoteID2)
 	}
 }
@@ -122,8 +72,7 @@ func Test_RefuseCmd(t *testing.T) {
 	codec := TestProto.newCodec(conn, 1024)
 
 	for i := 0; i < 10000; i++ {
-		remoteID1 := rand.Uint32()
-		msg1 := TestProto.encodeRefuseCmd(remoteID1)
+		msg1 := TestProto.encodeRefuseCmd()
 
 		err := codec.Send(&msg1)
 		utest.IsNilNow(t, err)
@@ -134,8 +83,33 @@ func Test_RefuseCmd(t *testing.T) {
 		msg3 := *(msg2.(*[]byte))
 		cmd := TestProto.decodeCmd(msg3)
 		utest.EqualNow(t, cmd, refuseCmd)
+	}
+}
 
-		remoteID2 := TestProto.decodeRefuseCmd(msg3)
+func Test_ConnectCmd(t *testing.T) {
+	conn, err := net.Dial("tcp", TestAddr)
+	utest.IsNilNow(t, err)
+	defer conn.Close()
+
+	codec := TestProto.newCodec(conn, 1024)
+
+	for i := 0; i < 10000; i++ {
+		connID1 := rand.Uint32()
+		remoteID1 := rand.Uint32()
+		msg1 := TestProto.encodeConnectCmd(connID1, remoteID1)
+
+		err := codec.Send(&msg1)
+		utest.IsNilNow(t, err)
+
+		msg2, err := codec.Receive()
+		utest.IsNilNow(t, err)
+
+		msg3 := *(msg2.(*[]byte))
+		cmd := TestProto.decodeCmd(msg3)
+		utest.EqualNow(t, cmd, connectCmd)
+
+		connID2, remoteID2 := TestProto.decodeConnectCmd(msg3)
+		utest.EqualNow(t, connID1, connID2)
 		utest.EqualNow(t, remoteID1, remoteID2)
 	}
 }

@@ -264,24 +264,15 @@ func (g *Gateway) handleSession(id uint32, session *link.Session, side, maxConn 
 
 func (g *Gateway) processCmd(msg []byte, session *link.Session, state *gwState, side, otherSide, maxConn int) {
 	switch g.decodeCmd(msg) {
-	case newCmd:
-		g.free(msg)
-
-		var connID uint32
-		for connID == 0 {
-			connID = atomic.AddUint32(&g.virtualConnID, 1)
-		}
-		g.send(session, g.encodeOpenCmd(connID))
-
 	case dialCmd:
-		connID, remoteID := g.decodeDialCmd(msg)
+		remoteID := g.decodeDialCmd(msg)
 		g.free(msg)
 
 		var pair [2]*link.Session
 		pair[side] = session
 		pair[otherSide] = g.getPhysicalConn(remoteID, otherSide)
-		if pair[otherSide] == nil || !g.acceptVirtualConn(connID, pair, session, maxConn) {
-			g.send(session, g.encodeRefuseCmd(connID))
+		if pair[otherSide] == nil || !g.acceptVirtualConn(pair, session, maxConn) {
+			g.send(session, g.encodeRefuseCmd())
 		}
 
 	case closeCmd:
@@ -299,7 +290,12 @@ func (g *Gateway) processCmd(msg []byte, session *link.Session, state *gwState, 
 	}
 }
 
-func (g *Gateway) acceptVirtualConn(connID uint32, pair [2]*link.Session, session *link.Session, maxConn int) bool {
+func (g *Gateway) acceptVirtualConn(pair [2]*link.Session, session *link.Session, maxConn int) bool {
+	var connID uint32
+	for connID == 0 {
+		connID = atomic.AddUint32(&g.virtualConnID, 1)
+	}
+
 	for i := 0; i < 2; i++ {
 		state := pair[i].State.(*gwState)
 
@@ -324,7 +320,11 @@ func (g *Gateway) acceptVirtualConn(connID uint32, pair [2]*link.Session, sessio
 
 	for i := 0; i < 2; i++ {
 		remoteID := pair[(i+1)%2].State.(*gwState).id
-		g.send(pair[i], g.encodeAcceptCmd(connID, remoteID))
+		if pair[i] == session {
+			g.send(pair[i], g.encodeAcceptCmd(connID, remoteID))
+		} else {
+			g.send(pair[i], g.encodeConnectCmd(connID, remoteID))
+		}
 	}
 	return true
 }

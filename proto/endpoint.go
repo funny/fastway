@@ -69,8 +69,8 @@ type Endpoint struct {
 	newConnMutex sync.Mutex
 	newConnChan  chan uint32
 	dialMutex    sync.Mutex
-	dialChan     chan vconn
 	acceptChan   chan vconn
+	connectChan  chan vconn
 	virtualConns *link.Uint32Channel
 	closeChan    chan struct{}
 	closeOnce    sync.Once
@@ -84,6 +84,7 @@ func newEndpoint(pool slab.Pool, maxPacketSize int) *Endpoint {
 		},
 		newConnChan:  make(chan uint32),
 		acceptChan:   make(chan vconn),
+		connectChan:  make(chan vconn),
 		virtualConns: link.NewUint32Channel(),
 		closeChan:    make(chan struct{}),
 	}
@@ -92,7 +93,7 @@ func newEndpoint(pool slab.Pool, maxPacketSize int) *Endpoint {
 // Accept accept a virtual connection.
 func (p *Endpoint) Accept() (session *link.Session, connID, remoteID uint32, err error) {
 	select {
-	case conn := <-p.acceptChan:
+	case conn := <-p.connectChan:
 		return conn.Session, conn.ConnID, conn.RemoteID, nil
 	case <-p.closeChan:
 		return nil, 0, 0, io.EOF
@@ -104,36 +105,19 @@ func (p *Endpoint) Dial(remoteID uint32) (*link.Session, uint32, error) {
 	p.dialMutex.Lock()
 	defer p.dialMutex.Unlock()
 
-	if err := p.send(p.session, p.encodeNewCmd()); err != nil {
+	if err := p.send(p.session, p.encodeDialCmd(remoteID)); err != nil {
 		return nil, 0, err
 	}
 
-	var connID uint32
 	select {
-	case connID = <-p.newConnChan:
+	case conn := <-p.acceptChan:
+		if conn.Session == nil {
+			return nil, 0, ErrRefused
+		}
+		return conn.Session, conn.ConnID, nil
 	case <-p.closeChan:
 		return nil, 0, io.EOF
 	}
-	if connID == 0 {
-		return nil, 0, ErrRefused
-	}
-
-	var conn vconn
-	p.dialChan = make(chan vconn, 1)
-	if err := p.send(p.session, p.encodeDialCmd(connID, remoteID)); err != nil {
-		return nil, 0, err
-	}
-	select {
-	case conn = <-p.dialChan:
-	case <-p.closeChan:
-		return nil, 0, io.EOF
-	}
-	p.dialChan = nil
-
-	if conn.Session == nil {
-		return nil, 0, ErrRefused
-	}
-	return conn.Session, conn.ConnID, nil
 }
 
 // Close endpoint.
@@ -144,18 +128,12 @@ func (p *Endpoint) Close() {
 	})
 }
 
-func (p *Endpoint) addVirtualConn(connID, remoteID uint32) {
+func (p *Endpoint) addVirtualConn(connID, remoteID uint32, c chan vconn) {
 	codec := p.newVirtualCodec(p.session, connID)
 	session := link.NewSession(codec, 0)
 	p.virtualConns.Put(connID, session)
-
-	if p.dialChan != nil {
-		p.dialChan <- vconn{session, connID, remoteID}
-		return
-	}
-
 	select {
-	case p.acceptChan <- vconn{session, connID, remoteID}:
+	case c <- vconn{session, connID, remoteID}:
 	case <-p.closeChan:
 	default:
 		p.send(p.session, p.encodeCloseCmd(connID))
@@ -200,28 +178,23 @@ func (p *Endpoint) loop() {
 func (p *Endpoint) processCmd(buf []byte) {
 	cmd := p.decodeCmd(buf)
 	switch cmd {
-	case openCmd:
-		connID := p.decodeOpenCmd(buf)
-		p.free(buf)
-		select {
-		case p.newConnChan <- connID:
-		case <-p.closeChan:
-			return
-		}
-
-	case refuseCmd:
-		connID := p.decodeRefuseCmd(buf)
-		p.free(buf)
-		select {
-		case p.dialChan <- vconn{nil, connID, 0}:
-		case <-p.closeChan:
-			return
-		}
-
 	case acceptCmd:
 		connID, remoteID := p.decodeAcceptCmd(buf)
 		p.free(buf)
-		p.addVirtualConn(connID, remoteID)
+		p.addVirtualConn(connID, remoteID, p.acceptChan)
+
+	case refuseCmd:
+		p.free(buf)
+		select {
+		case p.acceptChan <- vconn{nil, 0, 0}:
+		case <-p.closeChan:
+			return
+		}
+
+	case connectCmd:
+		connID, remoteID := p.decodeConnectCmd(buf)
+		p.free(buf)
+		p.addVirtualConn(connID, remoteID, p.connectChan)
 
 	case closeCmd:
 		connID := p.decodeCloseCmd(buf)

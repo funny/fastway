@@ -239,7 +239,7 @@ func Test_BadClients(t *testing.T) {
 
 	conn, err = net.Dial("tcp", lsn1.Addr().String())
 	utest.IsNilNow(t, err)
-	conn.Write(TestProto.encodeRefuseCmd(0))
+	conn.Write(TestProto.encodeRefuseCmd())
 	conn.Close()
 }
 
@@ -296,20 +296,5 @@ func Test_BadEndpoint(t *testing.T) {
 		}
 	}()
 	_, err = DialServer(lsn3.Addr().String(), TestPool, 123, "bad key", 1, 2048, 1024, 1024)
-	utest.NotNilNow(t, err)
-
-	// bad gateway 2
-	lsn4, err := net.Listen("tcp", ":0")
-	utest.IsNilNow(t, err)
-	defer lsn4.Close()
-	go func() {
-		conn, err := lsn4.Accept()
-		if err == nil {
-			conn.Write(TestProto.encodeNewCmd())
-		}
-	}()
-	client, err = DialClient(lsn4.Addr().String(), TestPool, 2048, 1024, 1024)
-	utest.IsNilNow(t, err)
-	_, _, err = client.Dial(1)
 	utest.NotNilNow(t, err)
 }

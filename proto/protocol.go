@@ -77,70 +77,25 @@ func (p *protocol) decodeCmd(msg []byte) (CMD byte) {
 // ==================================================
 
 const (
-	newCmd     = 0
-	newCmdSize = cmdHeadSize
+	dialCmd         = 0
+	dialCmdSize     = cmdHeadSize + cmdIDSize
+	dialCmdRemoteID = cmdArgs
 )
 
-func (p *protocol) encodeNewCmd() []byte {
-	return p.allocCmd(newCmd, newCmdSize)
+func (p *protocol) decodeDialCmd(msg []byte) (remoteID uint32) {
+	return binary.LittleEndian.Uint32(msg[dialCmdRemoteID:])
 }
 
-const (
-	openCmd       = 1
-	openCmdSize   = cmdHeadSize + cmdIDSize
-	openCmdConnID = cmdArgs
-)
-
-func (p *protocol) decodeOpenCmd(msg []byte) (connID uint32) {
-	return binary.LittleEndian.Uint32(msg[openCmdConnID:])
-}
-
-func (p *protocol) encodeOpenCmd(connID uint32) []byte {
-	buffer := p.allocCmd(openCmd, openCmdSize)
-	binary.LittleEndian.PutUint32(buffer[openCmdConnID:], connID)
+func (p *protocol) encodeDialCmd(remoteID uint32) []byte {
+	buffer := p.allocCmd(dialCmd, dialCmdSize)
+	binary.LittleEndian.PutUint32(buffer[dialCmdRemoteID:], remoteID)
 	return buffer
 }
 
 // ==================================================
 
 const (
-	dialCmd         = 2
-	dialCmdSize     = cmdHeadSize + cmdIDSize*2
-	dialCmdConnID   = cmdArgs
-	dialCmdRemoteID = dialCmdConnID + cmdIDSize
-)
-
-func (p *protocol) decodeDialCmd(msg []byte) (connID, remoteID uint32) {
-	connID = binary.LittleEndian.Uint32(msg[dialCmdConnID:])
-	remoteID = binary.LittleEndian.Uint32(msg[dialCmdRemoteID:])
-	return
-}
-
-func (p *protocol) encodeDialCmd(connID, remoteID uint32) []byte {
-	buffer := p.allocCmd(dialCmd, dialCmdSize)
-	binary.LittleEndian.PutUint32(buffer[dialCmdConnID:], connID)
-	binary.LittleEndian.PutUint32(buffer[dialCmdRemoteID:], remoteID)
-	return buffer
-}
-
-const (
-	refuseCmd       = 3
-	refuseCmdSize   = cmdHeadSize + cmdIDSize
-	refuseCmdConnID = cmdArgs
-)
-
-func (p *protocol) decodeRefuseCmd(msg []byte) (connID uint32) {
-	return binary.LittleEndian.Uint32(msg[refuseCmdConnID:])
-}
-
-func (p *protocol) encodeRefuseCmd(connID uint32) []byte {
-	buffer := p.allocCmd(refuseCmd, refuseCmdSize)
-	binary.LittleEndian.PutUint32(buffer[refuseCmdConnID:], connID)
-	return buffer
-}
-
-const (
-	acceptCmd         = 4
+	acceptCmd         = 1
 	acceptCmdSize     = cmdHeadSize + cmdIDSize*2
 	acceptCmdConnID   = cmdArgs
 	acceptCmdRemoteID = acceptCmdConnID + cmdIDSize
@@ -162,7 +117,40 @@ func (p *protocol) encodeAcceptCmd(connID, remoteID uint32) []byte {
 // ==================================================
 
 const (
-	closeCmd       = 5
+	refuseCmd     = 2
+	refuseCmdSize = cmdHeadSize
+)
+
+func (p *protocol) encodeRefuseCmd() []byte {
+	return p.allocCmd(refuseCmd, refuseCmdSize)
+}
+
+// ==================================================
+
+const (
+	connectCmd         = 3
+	connectCmdSize     = cmdHeadSize + cmdIDSize*2
+	connectCmdConnID   = cmdArgs
+	connectCmdRemoteID = connectCmdConnID + cmdIDSize
+)
+
+func (p *protocol) decodeConnectCmd(msg []byte) (connID, remoteID uint32) {
+	connID = binary.LittleEndian.Uint32(msg[connectCmdConnID:])
+	remoteID = binary.LittleEndian.Uint32(msg[connectCmdRemoteID:])
+	return
+}
+
+func (p *protocol) encodeConnectCmd(connID, remoteID uint32) []byte {
+	buffer := p.allocCmd(connectCmd, connectCmdSize)
+	binary.LittleEndian.PutUint32(buffer[connectCmdConnID:], connID)
+	binary.LittleEndian.PutUint32(buffer[connectCmdRemoteID:], remoteID)
+	return buffer
+}
+
+// ==================================================
+
+const (
+	closeCmd       = 4
 	closeCmdSize   = cmdHeadSize + cmdIDSize
 	closeCmdConnID = cmdArgs
 )
@@ -180,7 +168,7 @@ func (p *protocol) encodeCloseCmd(connID uint32) []byte {
 // ==================================================
 
 const (
-	pingCmd     = 6
+	pingCmd     = 5
 	pingCmdSize = cmdHeadSize
 )
 
