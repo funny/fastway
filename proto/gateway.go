@@ -272,7 +272,7 @@ func (g *Gateway) processCmd(msg []byte, session *link.Session, state *gwState, 
 		pair[side] = session
 		pair[otherSide] = g.getPhysicalConn(remoteID, otherSide)
 		if pair[otherSide] == nil || !g.acceptVirtualConn(pair, session, maxConn) {
-			g.send(session, g.encodeRefuseCmd())
+			g.send(session, g.encodeRefuseCmd(remoteID))
 		}
 
 	case closeCmd:

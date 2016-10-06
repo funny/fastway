@@ -184,9 +184,10 @@ func (p *Endpoint) processCmd(buf []byte) {
 		p.addVirtualConn(connID, remoteID, p.acceptChan)
 
 	case refuseCmd:
+		remoteID := p.decodeRefuseCmd(buf)
 		p.free(buf)
 		select {
-		case p.acceptChan <- vconn{nil, 0, 0}:
+		case p.acceptChan <- vconn{nil, 0, remoteID}:
 		case <-p.closeChan:
 			return
 		}

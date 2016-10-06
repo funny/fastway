@@ -72,7 +72,8 @@ func Test_RefuseCmd(t *testing.T) {
 	codec := TestProto.newCodec(conn, 1024)
 
 	for i := 0; i < 10000; i++ {
-		msg1 := TestProto.encodeRefuseCmd()
+		remoteID1 := rand.Uint32()
+		msg1 := TestProto.encodeRefuseCmd(remoteID1)
 
 		err := codec.Send(&msg1)
 		utest.IsNilNow(t, err)
@@ -83,6 +84,9 @@ func Test_RefuseCmd(t *testing.T) {
 		msg3 := *(msg2.(*[]byte))
 		cmd := TestProto.decodeCmd(msg3)
 		utest.EqualNow(t, cmd, refuseCmd)
+
+		remoteID2 := TestProto.decodeRefuseCmd(msg3)
+		utest.EqualNow(t, remoteID1, remoteID2)
 	}
 }
 

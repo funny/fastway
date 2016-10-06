@@ -239,7 +239,7 @@ func Test_BadClients(t *testing.T) {
 
 	conn, err = net.Dial("tcp", lsn1.Addr().String())
 	utest.IsNilNow(t, err)
-	conn.Write(TestProto.encodeRefuseCmd())
+	conn.Write(TestProto.encodeRefuseCmd(123))
 	conn.Close()
 }
 
