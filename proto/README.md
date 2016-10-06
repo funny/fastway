@@ -181,7 +181,7 @@ json.Unmarshal(*(buf.(*[]byte)), &msg)
 
 ```
 +-------------+-------------+---------+----------------+---------------+
-| Length = 13 | Conn ID = 0 | CMD = 3 | Conn ID = 9527 | Server ID = 1 |
+| Length = 13 | Conn ID = 0 | CMD = 2 | Conn ID = 9527 | Server ID = 1 |
 +-------------+-------------+---------+----------------+---------------+
 	4 byte        4 byte       1 byte       4 byte           4 byte
 ```
