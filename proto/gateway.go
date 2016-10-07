@@ -105,9 +105,9 @@ func (g *Gateway) ServeClients(lsn net.Listener, maxConn, bufferSize, sendChanSi
 // bufferSize settings bufio.Reader memory usage for each servers.
 // sendChanSize settings async sending behavior for servers.
 // pingInterval is the seconds of that gateway not receiving message from server will send PING command to check it alive.
-func (g *Gateway) ServeServers(lsn net.Listener, key string, authTimeout, bufferSize, sendChanSize int, pingInterval time.Duration) {
+func (g *Gateway) ServeServers(lsn net.Listener, key string, authTimeout time.Duration, bufferSize, sendChanSize int, pingInterval time.Duration) {
 	g.servers[1] = link.NewServer(lsn, link.ProtocolFunc(func(rw io.ReadWriter) (link.Codec, link.Context, error) {
-		serverID, err := g.serverAuth(rw.(net.Conn), []byte(key), time.Duration(authTimeout)*time.Second)
+		serverID, err := g.serverAuth(rw.(net.Conn), []byte(key), authTimeout)
 		if err != nil {
 			return nil, nil, err
 		}

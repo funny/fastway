@@ -44,10 +44,10 @@
 | MemPoolMinChunk | Slab内存池中最小的Chunk大小 | 64B |
 | MemPoolPageSize | Slab内存池的每个Slab内存大小 | 1M |
 | ClientAddr | 网关暴露给客户端的地址 | ":0" |
-| ClientMaxConn | 每个客户端可以创建的最大虚拟连接数 | 8 |
+| ClientMaxConn | 每个客户端可以创建的最大虚拟连接数 | 16 |
 | ClientBufferSize | 每个客户端连接使用的 bufio.Reader 缓冲区大小 | 2K |
 | ClientPingInterval | 网关在多少秒没收到客户端消息后发送PING指令给客户端 | 30秒 |
-| ClientSendChanSize | 每个客户端连接异步发送消息用的chan缓冲区大小 | 1千 |
+| ClientSendChanSize | 每个客户端连接异步发送消息用的chan缓冲区大小 | 1000 |
 | ServerAddr | 网关暴露给服务端的地址 | ":0" |
 | ServerAuthPassword | 用于验证服务端合法性的秘钥 | 空 |
 | ServerAuthTimeout | 验证服务端连接时的最大IO等待时间 | 3秒 |

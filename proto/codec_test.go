@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"sync"
 	"testing"
 
 	"github.com/funny/link"
@@ -18,13 +19,16 @@ var TestPool = slab.NewSyncPool(64, 64*1024, 2)
 var TestProto = protocol{TestPool, 2048}
 
 func init() {
-	lsn, err := net.Listen("tcp", ":0")
+	lsn, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		panic(err)
 	}
 	TestAddr = lsn.Addr().String()
 
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
+		wg.Done()
 		for {
 			conn, err := lsn.Accept()
 			if err != nil {
@@ -36,6 +40,7 @@ func init() {
 			}()
 		}
 	}()
+	wg.Wait()
 
 	log.SetOutput(NullWriter{})
 }

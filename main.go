@@ -22,13 +22,13 @@ var (
 	memPoolPageSize = flag.Int("MemPoolPageSize", 1024*1024, "Size of each slab in memory pool.")
 
 	clientAddr         = flag.String("ClientAddr", ":0", "The gateway address where clients connect to.")
-	clientMaxConn      = flag.Int("ClientMaxConn", 8, "Limit max virtual connections for each client.")
+	clientMaxConn      = flag.Int("ClientMaxConn", 16, "Limit max virtual connections for each client.")
 	clientBufferSize   = flag.Int("ClientBufferSize", 2*1024, "Setting bufio.Reader's buffer size.")
 	clientSendChanSize = flag.Int("ClientSendChanSize", 1024, "Tunning client session's async behavior.")
 	clientPingInterval = flag.Duration("ClientPingInterval", 30*time.Second, "The interval of that gateway sending PING command to client.")
 
 	serverAddr         = flag.String("ServerAddr", ":0", "The gateway address where servers connect to.")
-	serverAuthTimeout  = flag.Int("ServerAuthTimeout", 3, "Server auth IO waiting timeout.")
+	serverAuthTimeout  = flag.Duration("ServerAuthTimeout", 3*time.Second, "Server auth IO waiting timeout.")
 	serverAuthKey      = flag.String("ServerAuthKey", "", "The private key used to auth server connection.")
 	serverBufferSize   = flag.Int("ServerBufferSize", 64*1024, "Buffer size of bufio.Reader for server connections.")
 	serverSendChanSize = flag.Int("ServerSendChanSize", 102400, "Tunning server session's async behavior, this value must be greater than zero.")

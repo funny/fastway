@@ -167,7 +167,7 @@ func Test_PingCmd(t *testing.T) {
 }
 
 func Test_ServerHandshake(t *testing.T) {
-	lsn, err := net.Listen("tcp", ":0")
+	lsn, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		panic(err)
 	}
@@ -200,7 +200,7 @@ func Test_BadSession(t *testing.T) {
 }
 
 func Test_BadHandshake(t *testing.T) {
-	lsn1, err := net.Listen("tcp", ":0")
+	lsn1, err := net.Listen("tcp", "127.0.0.1:0")
 	utest.IsNilNow(t, err)
 	defer lsn1.Close()
 

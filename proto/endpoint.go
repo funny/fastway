@@ -42,13 +42,13 @@ func DialClient(addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChan
 // maxPacketSize limits max packet size.
 // bufferSize settings bufio.Reader memory usage.
 // sendChanSize settings async sending behavior.
-func DialServer(addr string, pool slab.Pool, serverID uint32, key string, authTimeout, maxPacketSize, bufferSize, sendChanSize int) (*Endpoint, error) {
+func DialServer(addr string, pool slab.Pool, serverID uint32, key string, authTimeout time.Duration, maxPacketSize, bufferSize, sendChanSize int) (*Endpoint, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
 	ep := newEndpoint(pool, maxPacketSize)
-	if err := ep.serverInit(conn, serverID, []byte(key), time.Duration(authTimeout)*time.Second); err != nil {
+	if err := ep.serverInit(conn, serverID, []byte(key), authTimeout); err != nil {
 		return nil, err
 	}
 	ep.session = link.NewSession(ep.newCodec(conn, bufferSize), sendChanSize)
