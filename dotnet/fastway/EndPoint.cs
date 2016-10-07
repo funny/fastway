@@ -5,101 +5,143 @@ using System.Collections.Generic;
 
 namespace fastway
 {
-	public delegate void MsgHandler(byte[] msg);
-	public delegate void ConnCallback(bool ok, uint connID, uint remoteID);
-	public delegate void CloseCallback(uint connID, uint remoteID);
-
 	public class Conn
 	{
-		public uint ID;
-		public uint RemoteID;
+		private EndPoint p;
+		private uint remoteID;
+
+		internal uint id;
+		internal bool closed;
+		internal Queue<byte[]> waitRecv;
+		internal Queue<byte[]> waitSend;
+
+		public uint ID { get { return id; } }
+		public uint RemoteID { get { return remoteID; } }
+
+		public Conn(EndPoint p, uint id, uint remoteID)
+		{
+			this.p = p;
+			this.id = id;
+			this.remoteID = remoteID;
+			this.waitRecv = new Queue<byte[]> ();
+
+			if (id == 0) {
+				this.waitSend = new Queue<byte[]> ();
+			}
+		}
+
+		public byte[] Receive()
+		{
+			lock (this) {
+				if (this.closed)
+					return new byte[0];
+				
+				if (this.waitRecv.Count == 0)
+					return null;
+				
+				return this.waitRecv.Dequeue ();
+			}
+		}
+
+		public bool Send(byte[] msg)
+		{
+			lock (this) {
+				if (this.closed)
+					return false;
+
+				if (this.id != 0)
+					this.p.Send (this.id, msg);
+				else
+					this.waitSend.Enqueue (msg);
+			}
+			return true;
+		}
+
+		public void Close()
+		{
+			lock (this) {
+				this.closed = true;
+				this.p.Close (this.id, this);
+			}
+		}
 	}
 
 	public class EndPoint
 	{
-		private class ConnCallbacks
-		{
-			public ConnCallback OnConn;
-			public CloseCallback OnClose;
-
-			public ConnCallbacks(ConnCallback onConn, CloseCallback onClose)
-			{
-				this.OnConn = onConn;
-				this.OnClose = onClose;
-			}
-		}
-
-		private Stream s; // base stream
-		private Object l; // lock object
-		private Dictionary<uint /* conn id */, Queue<byte[]>> mq; // message queue
-		private Dictionary<uint /* remote id */, Queue<ConnCallbacks>> cq; // connect queue
-		private Dictionary<uint /* remote id */, Queue<ConnCallbacks>> dq; // dial queue
-		private Dictionary<uint /* conn id */, CloseCallback> cc; // close callbacks
-		private Dictionary<uint /* conn id */, uint> cr; // conn id to remote id map
+		private Stream s;
+		private bool closed;
+		private Queue<Conn> waitAccept;
+		private Dictionary<uint /* remote id */, List<Conn>> dialWait;
+		private Dictionary<uint /* conn id */, Conn> connections;
 
 		public EndPoint (Stream s)
 		{
 			this.s = s;
-			this.l = new Object ();
-			this.mq = new Dictionary<uint, Queue<byte[]>>();
-			this.cq = new Dictionary<uint, Queue<ConnCallbacks>> ();
-			this.dq = new Dictionary<uint, Queue<ConnCallbacks>> ();
-			this.cc = new Dictionary<uint, CloseCallback> ();
-			this.cr = new Dictionary<uint, uint> ();
+			this.waitAccept = new Queue<Conn> ();
+			this.dialWait = new Dictionary<uint, List<Conn>> ();
+			this.connections = new Dictionary<uint, Conn>();
 
-			this.BeginRecvPacket ();
+			this.MsgLoop ();
 		}
 
-		public void CloseAll()
+		public void Close()
 		{
-			this.s.Close ();
-		}
-
-		public void Accept(uint remoteID, ConnCallback onConn, CloseCallback onClose)
-		{
-			lock (this.l) {
-				if (!this.cq.ContainsKey(remoteID)) {
-					this.cq.Add(remoteID, new Queue<ConnCallbacks>());
-				}
-				this.cq[remoteID].Enqueue(new ConnCallbacks(onConn, onClose));
-			}
-		}
-
-		public void Dial(uint remoteID, ConnCallback onConn, CloseCallback onClose) 
-		{
-			byte[] buf = new byte[13];
-			using (MemoryStream ms = new MemoryStream (buf)) {
-				using (BinaryWriter bw = new BinaryWriter (ms)) {
-					bw.Write ((uint)9);
-					bw.Write ((uint)0);
-					bw.Write ((byte)0);
-					bw.Write (remoteID);
-				}
-			}
-			this.s.BeginWrite (buf, 0, buf.Length, (IAsyncResult result) => {
-				this.s.EndWrite(result);
-				lock (this.l) {
-					if (!this.dq.ContainsKey(remoteID)) {
-						this.dq.Add(remoteID, new Queue<ConnCallbacks>());
-					}
-					this.dq[remoteID].Enqueue(new ConnCallbacks(onConn, onClose));
-				}
-			}, remoteID);
-		}
-
-		public void Process(uint connID, MsgHandler callback)
-		{
-			lock (this.l) {
-				Queue<byte[]> q;
-				if (this.mq.TryGetValue (connID, out q)) {
-					while (q.Count > 0) {
-						callback (q.Dequeue ());
+			lock (this) {
+				this.closed = true;
+				foreach (KeyValuePair<uint, Conn> item in connections) {
+					lock (item.Value) {
+						item.Value.closed = true;
 					}
 				}
+				this.s.Close ();
 			}
 		}
 
-		public void Send(uint connID, byte[] msg)
+		public Conn Accept()
+		{
+			lock (this) {
+				if (this.closed)
+					return null;
+				
+				if (this.waitAccept.Count > 0) {
+					return this.waitAccept.Dequeue ();
+				}
+			}
+			return null;
+		}
+
+		public Conn Dial(uint remoteID) 
+		{
+			lock (this) {
+				if (this.closed)
+					return null;
+				
+				Conn conn = new Conn (this, 0, remoteID);
+
+				byte[] buf = new byte[13];
+				using (MemoryStream ms = new MemoryStream (buf)) {
+					using (BinaryWriter bw = new BinaryWriter (ms)) {
+						bw.Write ((uint)9);
+						bw.Write ((uint)0);
+						bw.Write ((byte)0);
+						bw.Write (remoteID);
+					}
+				}
+
+				if (!this.dialWait.ContainsKey (remoteID)) {
+					this.dialWait.Add (remoteID, new List<Conn> ());
+				}
+				this.dialWait [remoteID].Add (conn);
+
+				this.s.BeginWrite (buf, 0, buf.Length, (IAsyncResult result) => {
+					this.s.EndWrite (result);
+				}, remoteID);
+
+				return conn;
+			}
+		}
+
+		internal void Send(uint connID, byte[] msg)
 		{
 			byte[] buf = new byte[4 + 4 + msg.Length];
 			using (MemoryStream ms = new MemoryStream (buf)) {
@@ -114,16 +156,21 @@ namespace fastway
 			}, null);
 		}
 
-		public void Close(uint connID, bool invokeCallback)
+		internal void Close(uint connID, Conn conn)
 		{
-			lock (this.l) {
-				if (this.cc.ContainsKey (connID)) {
-					if (invokeCallback) {
-						this.cc [connID] (connID, this.cr [connID]);
+			lock (this) {
+				if (this.closed)
+					return;
+				
+				if (connID != 0) {
+					if (this.connections.ContainsKey (connID)) {
+						this.connections.Remove (connID);
 					}
-					this.cc.Remove (connID);
-					this.cr.Remove (connID);
-					this.mq.Remove (connID);
+				} else {
+					List<Conn> q;
+					if (this.dialWait.TryGetValue (conn.RemoteID, out q)) {
+						q.Remove (conn);
+					}
 				}
 			}
 
@@ -136,18 +183,20 @@ namespace fastway
 					bw.Write (connID);
 				}
 			}
+
 			this.s.BeginWrite (buf, 0, buf.Length, (IAsyncResult result) => {
 				this.s.EndWrite(result);
 			}, null);
 		}
 
-		private void BeginRecvPacket()
+		private void MsgLoop()
 		{
 			byte[] head = new byte[4];
 			this.s.BeginRead (head, 0, 4, (IAsyncResult result1) => {
 				byte[] buf = (byte[])result1.AsyncState;
 				this.s.EndRead(result1);
 
+				// decode length
 				int length;
 				using (MemoryStream ms = new MemoryStream (buf)) {
 					using (BinaryReader br = new BinaryReader (ms)) {
@@ -160,6 +209,7 @@ namespace fastway
 					byte[] body = (byte[])result2.AsyncState;
 					this.s.EndRead(result2);
 
+					// decode conn id
 					uint connID;
 					using (MemoryStream ms = new MemoryStream (body)) {
 						using (BinaryReader br = new BinaryReader (ms)) {
@@ -167,40 +217,44 @@ namespace fastway
 						}
 					}
 
+					// dispatch message
 					if (connID != 0) {
-						lock (this.l) {
-							Queue<byte[]> q;
-							if (this.mq.TryGetValue(connID, out q)) {
-								q.Enqueue(body);
-							} else {
-								this.Close(connID, false);
+						Conn conn;
+						lock (this) {
+							if (!this.connections.TryGetValue(connID, out conn)) {
+								this.Close(connID, null);
+								goto END;
 							}
 						}
-					} else {
-						byte cmd = body[4];
-
-						switch (cmd) {
-						case 1:
-							this.HandleAcceptCmd(body);
-							break;
-						case 2:
-							this.HandleConnectCmd(body);
-							break;
-						case 3:
-							this.HandleRefuseCmd(body);
-							break;
-						case 4:
-							this.HandleCloseCmd(body);
-							break;
-						case 5:
-							this.HandlePingCmd();
-							break;
-						default:
-							throw new Exception("Unsupported Gateway Command");
+						lock (conn) {
+							conn.waitRecv.Enqueue(body);
 						}
+						END:
+						this.MsgLoop();
+						return;
 					}
 
-					this.BeginRecvPacket();
+					// handle command
+					switch (body[4]) {
+					case 1:
+						this.HandleAcceptCmd(body);
+						break;
+					case 2:
+						this.HandleConnectCmd(body);
+						break;
+					case 3:
+						this.HandleRefuseCmd(body);
+						break;
+					case 4:
+						this.HandleCloseCmd(body);
+						break;
+					case 5:
+						this.HandlePingCmd();
+						break;
+					default:
+						throw new Exception("Unsupported Gateway Command");
+					}
+					this.MsgLoop();
 				}, buf);
 			}, head);
 		}
@@ -216,19 +270,25 @@ namespace fastway
 				}
 			}
 
-			lock (this.l) {
-				Queue<ConnCallbacks> q;
-				if (this.dq.TryGetValue(remoteID, out q)) {
-					ConnCallbacks callbacks = q.Dequeue();
-					callbacks.OnConn (true, connID, remoteID);
-					this.cc.Add (connID, callbacks.OnClose);
-					this.cr.Add (connID, remoteID);
-					this.mq.Add (connID, new Queue<byte[]> ());
+			Conn conn;
+
+			lock (this) {
+				List<Conn> q;
+				if (!this.dialWait.TryGetValue (remoteID, out q) || q.Count == 0) {
+					this.Close (connID, null);
 					return;
 				}
+				conn = q [0];
+				q.RemoveAt (0);
+				this.connections.Add (connID, conn);
 			}
 
-			this.Close (connID, false);
+			lock (conn) {
+				conn.id = connID;
+				while (conn.waitSend.Count > 0) {
+					this.Send (connID, conn.waitSend.Dequeue ());
+				}
+			}
 		}
 
 		private void HandleConnectCmd(byte[] body)
@@ -242,19 +302,11 @@ namespace fastway
 				}
 			}
 
-			lock (this.l) {
-				Queue<ConnCallbacks> q;
-				if (this.cq.TryGetValue(remoteID, out q)) {
-					ConnCallbacks callbacks = q.Dequeue();
-					callbacks.OnConn (true, connID, remoteID);
-					this.cc.Add (connID, callbacks.OnClose);
-					this.cr.Add (connID, remoteID);
-					this.mq.Add (connID, new Queue<byte[]> ());
-					return;
-				}
+			lock (this) {
+				Conn conn = new Conn (this, connID, remoteID);
+				this.waitAccept.Enqueue (conn);
+				this.connections.Add (connID, conn);
 			}
-
-			this.Close (connID, false);
 		}
 
 		private void HandleRefuseCmd(byte[] body)
@@ -266,11 +318,14 @@ namespace fastway
 				}
 			}
 
-			lock (this.l) {
-				Queue<ConnCallbacks> q;
-				if (this.dq.TryGetValue(remoteID, out q)) {
-					ConnCallbacks callbacks = q.Dequeue();
-					callbacks.OnConn(false, 0, remoteID);
+			lock (this) {
+				List<Conn> q;
+				if (this.dialWait.TryGetValue (remoteID, out q)) {
+					Conn conn = q [0];
+					q.RemoveAt (0);
+					lock (conn) {
+						conn.closed = true;
+					}
 				}
 			}
 		}
@@ -284,10 +339,12 @@ namespace fastway
 				}
 			}
 
-			lock (this.l) {
-				CloseCallback callback;
-				if (this.cc.TryGetValue(connID, out callback)) {
-					callback (connID, this.cr[connID]);
+			lock (this) {
+				Conn conn;
+				if (this.connections.TryGetValue(connID, out conn)) {
+					lock (conn) {
+						conn.closed = true;
+					}
 				}
 			}
 		}
