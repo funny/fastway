@@ -185,7 +185,7 @@ L:
 			}
 			defer vconns.Close()
 
-			times := 500 + rand.Intn(500)
+			times := 3000 + rand.Intn(3000)
 			for i := 0; i < times; i++ {
 				buffer1 := make([]byte, 1024)
 				for i := 0; i < len(buffer1); i++ {
