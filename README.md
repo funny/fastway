@@ -17,7 +17,7 @@
 
 拓扑结构：
 
-![Gateway](https://raw.githubusercontent.com/fastgo/gateway/master/README.svg)
+![Gateway](https://rawgit.com/fast/fastway/master/README.svg)
 
 基础逻辑：
 
