@@ -146,17 +146,18 @@ namespace fastway
 
 		internal void Send(uint connID, byte[] msg)
 		{
-			byte[] buf = new byte[4 + 4 + msg.Length];
-			using (MemoryStream ms = new MemoryStream (buf)) {
+			using (MemoryStream ms = new MemoryStream ()) {
 				using (BinaryWriter bw = new BinaryWriter (ms)) {
-					bw.Write ((uint)4 + msg.Length);
+					bw.Write ((uint)(4 + msg.Length));
 					bw.Write (connID);
 					bw.Write (msg);
+
+					byte[] buf = ms.GetBuffer ();
+					this.s.BeginWrite (buf, 0, buf.Length, (IAsyncResult result) => {
+						this.s.EndWrite(result);
+					}, null);
 				}
 			}
-			this.s.BeginWrite (buf, 0, buf.Length, (IAsyncResult result) => {
-				this.s.EndWrite(result);
-			}, null);
 		}
 
 		internal void Close(uint connID, Conn conn)
@@ -354,7 +355,7 @@ namespace fastway
 
 		private void HandlePingCmd()
 		{
-			byte[] buf = new byte[8];
+			byte[] buf = new byte[9];
 			using (MemoryStream ms = new MemoryStream (buf)) {
 				using (BinaryWriter bw = new BinaryWriter (ms)) {
 					bw.Write ((uint)5);
@@ -362,6 +363,7 @@ namespace fastway
 					bw.Write ((byte)5);
 				}
 			}
+
 			this.s.BeginWrite (buf, 0, buf.Length, (IAsyncResult result) => {
 				this.s.EndWrite(result);
 			}, null);

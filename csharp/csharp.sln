@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "fastway", "fastway\fastway.csproj", "{4FB07D26-3706-44D3-A6DD-519E0F698869}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "fastway_test", "fastway_test\fastway_test.csproj", "{B619B4DF-6F5C-4F0B-86C2-F3FA37EB9D44}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -13,5 +15,9 @@ Global
 		{4FB07D26-3706-44D3-A6DD-519E0F698869}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4FB07D26-3706-44D3-A6DD-519E0F698869}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4FB07D26-3706-44D3-A6DD-519E0F698869}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B619B4DF-6F5C-4F0B-86C2-F3FA37EB9D44}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B619B4DF-6F5C-4F0B-86C2-F3FA37EB9D44}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B619B4DF-6F5C-4F0B-86C2-F3FA37EB9D44}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B619B4DF-6F5C-4F0B-86C2-F3FA37EB9D44}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
