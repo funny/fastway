@@ -19,7 +19,8 @@
 说明
 ====
 
-<center><img src="https://rawgit.com/fast/fastway/master/README.svg" alt="Gateway" /><br/><b>图1 - 拓扑结构</b></center>
+<p align="center"><img src="https://rawgit.com/fast/fastway/master/README.svg" alt="Gateway" /></p>
+<p align="center"><b>图1 - 拓扑结构</b></p>
 
 基本逻辑：
 
