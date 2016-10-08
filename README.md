@@ -19,9 +19,10 @@
 说明
 ====
 
-网关、客户端以及服务端之间的拓扑结构如下：
-
-![Gateway](https://rawgit.com/fast/fastway/master/README.svg)
+<center>
+<img src="https://rawgit.com/fast/fastway/master/README.svg" alt="Gateway" /><br/>
+<b>图1 - 拓扑结构</b>
+</center>
 
 基本逻辑：
 
