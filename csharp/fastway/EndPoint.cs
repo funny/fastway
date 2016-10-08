@@ -60,6 +60,9 @@ namespace fastway
 		public void Close()
 		{
 			lock (this) {
+				if (this.closed)
+					return;
+				
 				this.closed = true;
 				this.p.Close (this.id, this);
 			}

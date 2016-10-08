@@ -1,4 +1,4 @@
-package proto
+package fastway
 
 import (
 	"errors"
@@ -42,7 +42,6 @@ func DialClient(addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChan
 // authTimeout is the IO waiting timeout when server handshake.
 // maxPacketSize limits max packet size.
 // bufferSize settings bufio.Reader memory usage.
-// sendChanSize settings async sending behavior.
 // sendChanSize settings async sending behavior for physical connection.
 // recvChanSize settings async receiving behavior for virtual connection.
 func DialServer(addr string, pool slab.Pool, serverID uint32, key string, authTimeout time.Duration, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {

@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/fast/fastway/proto"
+	fastway "github.com/fast/fastway/golang"
 	"github.com/fast/reuseport"
 	"github.com/funny/cmd"
 	"github.com/funny/slab"
@@ -54,7 +54,7 @@ func main() {
 		println(`unsupported memory pool type, must be "sync", "atom" or "chan"`)
 	}
 
-	gw := proto.NewGateway(pool, *maxPacketSize)
+	gw := fastway.NewGateway(pool, *maxPacketSize)
 
 	go gw.ServeClients(listen("client", *clientAddr, *reusePort),
 		*clientMaxConn,

@@ -1,4 +1,4 @@
-package proto
+package fastway
 
 //
 // This code written by https://github.com/siddontang

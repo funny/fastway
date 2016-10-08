@@ -77,7 +77,7 @@ API
 
 本网关目前支持以下编程语言的调用：
 
-+ [Go版](https://github.com/fast/fastway/tree/master/proto)
-+ [C#版](https://github.com/fast/fastway/tree/master/dotnet)
++ [Go版](https://github.com/fast/fastway/tree/master/golang)
++ [C#版](https://github.com/fast/fastway/tree/master/csharp)
 
 通讯协议细节请进一步阅读Go调用库的文档。
