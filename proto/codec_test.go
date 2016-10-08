@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"os"
 	"sync"
 	"testing"
 
@@ -42,7 +43,11 @@ func init() {
 	}()
 	wg.Wait()
 
-	log.SetOutput(NullWriter{})
+	logFile, err := os.Create("proto.test.log")
+	if err != nil {
+		panic(err)
+	}
+	log.SetOutput(logFile)
 }
 
 type NullWriter struct{}
@@ -81,7 +86,7 @@ func Test_VirtualCodec(t *testing.T) {
 
 	codec := TestProto.newCodec(conn, 1024)
 	pconn := link.NewSession(codec, 1000)
-	vcodec := TestProto.newVirtualCodec(pconn, 123)
+	vcodec := TestProto.newVirtualCodec(pconn, 123, 1024)
 
 	for i := 0; i < 1000; i++ {
 		buffer1 := make([]byte, 1024)
@@ -139,7 +144,7 @@ func Test_BadVirtualCodec(t *testing.T) {
 
 	codec := TestProto.newCodec(conn, 1024)
 	pconn := link.NewSession(codec, 1000)
-	vcodec := TestProto.newVirtualCodec(pconn, 123)
+	vcodec := TestProto.newVirtualCodec(pconn, 123, 1024)
 
 	bigMsg := make([]byte, TestProto.maxPacketSize+1)
 	err = vcodec.Send(&bigMsg)

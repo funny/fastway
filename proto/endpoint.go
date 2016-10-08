@@ -21,13 +21,14 @@ var ErrRefused = errors.New("virtual connection refused")
 // pool used to pooling message buffers.
 // maxPacketSize limits max packet size.
 // bufferSize settings bufio.Reader memory usage.
-// sendChanSize settings async sending behavior.
-func DialClient(addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChanSize int) (*Endpoint, error) {
+// sendChanSize settings async sending behavior for physical connection.
+// recvChanSize settings async receiving behavior for virtual connection.
+func DialClient(addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
-	ep := newEndpoint(pool, maxPacketSize)
+	ep := newEndpoint(pool, maxPacketSize, recvChanSize)
 	ep.session = link.NewSession(ep.newCodec(conn, bufferSize), sendChanSize)
 	go ep.loop()
 	return ep, nil
@@ -42,12 +43,14 @@ func DialClient(addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChan
 // maxPacketSize limits max packet size.
 // bufferSize settings bufio.Reader memory usage.
 // sendChanSize settings async sending behavior.
-func DialServer(addr string, pool slab.Pool, serverID uint32, key string, authTimeout time.Duration, maxPacketSize, bufferSize, sendChanSize int) (*Endpoint, error) {
+// sendChanSize settings async sending behavior for physical connection.
+// recvChanSize settings async receiving behavior for virtual connection.
+func DialServer(addr string, pool slab.Pool, serverID uint32, key string, authTimeout time.Duration, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
-	ep := newEndpoint(pool, maxPacketSize)
+	ep := newEndpoint(pool, maxPacketSize, recvChanSize)
 	if err := ep.serverInit(conn, serverID, []byte(key), authTimeout); err != nil {
 		return nil, err
 	}
@@ -65,6 +68,7 @@ type vconn struct {
 // Endpoint is can be a client or a server.
 type Endpoint struct {
 	protocol
+	recvChanSize int
 	session      *link.Session
 	newConnMutex sync.Mutex
 	newConnChan  chan uint32
@@ -76,12 +80,13 @@ type Endpoint struct {
 	closeOnce    sync.Once
 }
 
-func newEndpoint(pool slab.Pool, maxPacketSize int) *Endpoint {
+func newEndpoint(pool slab.Pool, maxPacketSize, recvChanSize int) *Endpoint {
 	return &Endpoint{
 		protocol: protocol{
 			pool:          pool,
 			maxPacketSize: maxPacketSize,
 		},
+		recvChanSize: recvChanSize,
 		newConnChan:  make(chan uint32),
 		acceptChan:   make(chan vconn),
 		connectChan:  make(chan vconn),
@@ -129,7 +134,7 @@ func (p *Endpoint) Close() {
 }
 
 func (p *Endpoint) addVirtualConn(connID, remoteID uint32, c chan vconn) {
-	codec := p.newVirtualCodec(p.session, connID)
+	codec := p.newVirtualCodec(p.session, connID, p.recvChanSize)
 	session := link.NewSession(codec, 0)
 	p.virtualConns.Put(connID, session)
 	select {

@@ -28,10 +28,10 @@ func Test_Gateway(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	client, err := DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 1024)
+	client, err := DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 10240, 10240)
 	utest.IsNilNow(t, err)
 
-	server, err := DialServer(lsn2.Addr().String(), TestPool, 123, "123", 3*time.Second, 2048, 1024, 1024)
+	server, err := DialServer(lsn2.Addr().String(), TestPool, 123, "123", 3*time.Second, 2048, 1024, 10240, 10240)
 	utest.IsNilNow(t, err)
 
 	// make sure connection registered
@@ -131,10 +131,10 @@ func Test_GatewayParallel(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	client, err := DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 10240)
+	client, err := DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 10240, 10240)
 	utest.IsNilNow(t, err)
 
-	server, err := DialServer(lsn2.Addr().String(), TestPool, 123, "123", 3*time.Second, 2048, 1024, 10240)
+	server, err := DialServer(lsn2.Addr().String(), TestPool, 123, "123", 3*time.Second, 2048, 1024, 10240, 10240)
 	utest.IsNilNow(t, err)
 
 	// make sure connection registered
@@ -172,34 +172,53 @@ L:
 	}()
 
 	var wg sync.WaitGroup
+	var errors = make([]error, runtime.GOMAXPROCS(-1))
 	for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
 		wg.Add(1)
-		go func() {
-			vconns, _, err := client.Dial(123)
-			utest.IsNilNow(t, err)
+		go func(n int) {
+			defer wg.Done()
 
-			n := 5000 + rand.Intn(5000)
+			var vconns *link.Session
+			vconns, _, errors[n] = client.Dial(123)
+			if errors[n] != nil {
+				return
+			}
+			defer vconns.Close()
 
-			for i := 0; i < n; i++ {
+			times := 500 + rand.Intn(500)
+			for i := 0; i < times; i++ {
 				buffer1 := make([]byte, 1024)
 				for i := 0; i < len(buffer1); i++ {
 					buffer1[i] = byte(rand.Intn(256))
 				}
-				err := vconns.Send(&buffer1)
-				utest.IsNilNow(t, err)
 
-				buffer2, err := vconns.Receive()
-				utest.IsNilNow(t, err)
+				errors[n] = vconns.Send(&buffer1)
+				if errors[n] != nil {
+					return
+				}
+
+				var buffer2 interface{}
+				buffer2, errors[n] = vconns.Receive()
+				if errors[n] != nil {
+					return
+				}
+
 				utest.EqualNow(t, buffer1, *(buffer2.(*[]byte)))
 			}
-
-			vconns.Close()
-			wg.Done()
-		}()
+		}(i)
 	}
 
 	wg.Wait()
 	time.Sleep(time.Second)
+
+	var failed bool
+	for i := 0; i < len(errors); i++ {
+		utest.IsNil(t, errors[i])
+		if !failed && errors[i] != nil {
+			failed = true
+		}
+	}
+	utest.Assert(t, !failed)
 
 	utest.EqualNow(t, 0, client.virtualConns.Len())
 	utest.EqualNow(t, 0, server.virtualConns.Len())
@@ -258,28 +277,28 @@ func Test_BadEndpoint(t *testing.T) {
 	go gw.ServeServers(lsn2, "123", 3*time.Second, 1024, 1024, time.Second)
 
 	// bad remote ID
-	client, err := DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 1024)
+	client, err := DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 10240, 10240)
 	utest.IsNilNow(t, err)
 	_, _, err = client.Dial(12345)
 	utest.NotNilNow(t, err)
 	utest.EqualNow(t, err, ErrRefused)
 
 	// bad address
-	_, err = DialClient("127.0.0.1:0", TestPool, 2048, 1024, 1024)
+	_, err = DialClient("127.0.0.1:0", TestPool, 2048, 1024, 10240, 10240)
 	utest.NotNilNow(t, err)
-	_, err = DialServer("127.0.0.1:0", TestPool, 123, "bad key", 3*time.Second, 2048, 1024, 1024)
+	_, err = DialServer("127.0.0.1:0", TestPool, 123, "bad key", 3*time.Second, 2048, 1024, 10240, 10240)
 	utest.NotNilNow(t, err)
 
 	// gateway ping
 	conn, err := net.Dial("tcp", lsn1.Addr().String())
 	utest.IsNilNow(t, err)
 	defer conn.Close()
-	_, err = DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 1024)
+	_, err = DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 10240, 10240)
 	utest.IsNilNow(t, err)
 	time.Sleep(time.Second * 4)
 
 	// bad key
-	server, _ := DialServer(lsn2.Addr().String(), TestPool, 123, "bad key", 1*time.Second, 2048, 1024, 1024)
+	server, _ := DialServer(lsn2.Addr().String(), TestPool, 123, "bad key", 1*time.Second, 2048, 1024, 10240, 10240)
 	utest.NotNilNow(t, server)
 	var x = []byte{0, 0, 0}
 	_, err = server.session.Codec().(*codec).conn.Read(x)
@@ -295,6 +314,6 @@ func Test_BadEndpoint(t *testing.T) {
 			conn.Close()
 		}
 	}()
-	_, err = DialServer(lsn3.Addr().String(), TestPool, 123, "bad key", 1*time.Second, 2048, 1024, 1024)
+	_, err = DialServer(lsn3.Addr().String(), TestPool, 123, "bad key", 1*time.Second, 2048, 1024, 10240, 10240)
 	utest.NotNilNow(t, err)
 }

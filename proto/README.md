@@ -20,7 +20,8 @@ client, err := proto.DialClient(
 	MyMemPool,     // 内存池
 	MaxPacketSize, // 包体积限制
 	BufferSize,    // 预读所用的缓冲区大小
-	SendChanSize,  // 异步发送用的chan缓冲区大小
+	SendChanSize,  // 物理连接异步发送用的chan缓冲区大小
+	RecvChanSize,  // 虚拟连接异步接收用的chan缓冲区大小
 )
 ```
 
@@ -36,7 +37,8 @@ server, err := proto.DialServer(
 	AuthTimeout,   // 身份验证IO等待超时时间
 	MaxPacketSize, // 包体积限制
 	BufferSize,    // 预读所用的缓冲区大小
-	SendChanSize,  // 异步发送用的chan缓冲区大小
+	SendChanSize,  // 物理连接异步发送用的chan缓冲区大小
+	RecvChanSize,  // 虚拟连接异步接收用的chan缓冲区大小
 )
 ```
 

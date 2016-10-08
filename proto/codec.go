@@ -76,12 +76,12 @@ type virtualCodec struct {
 	closeOnce    sync.Once
 }
 
-func (p *protocol) newVirtualCodec(physicalConn *link.Session, connID uint32) *virtualCodec {
+func (p *protocol) newVirtualCodec(physicalConn *link.Session, connID uint32, recvChanSize int) *virtualCodec {
 	return &virtualCodec{
 		protocol:     p,
 		connID:       connID,
 		physicalConn: physicalConn,
-		recvChan:     make(chan []byte, 1024),
+		recvChan:     make(chan []byte, recvChanSize),
 	}
 }
 
