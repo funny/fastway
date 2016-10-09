@@ -122,6 +122,10 @@ namespace fastway
 					return null;
 				
 				Conn conn = new Conn (this, 0, remoteID);
+				if (!this.dialWait.ContainsKey (remoteID)) {
+					this.dialWait.Add (remoteID, new List<Conn> ());
+				}
+				this.dialWait [remoteID].Add (conn);
 
 				byte[] buf = new byte[13];
 				using (MemoryStream ms = new MemoryStream (buf)) {
@@ -132,15 +136,7 @@ namespace fastway
 						bw.Write (remoteID);
 					}
 				}
-
-				if (!this.dialWait.ContainsKey (remoteID)) {
-					this.dialWait.Add (remoteID, new List<Conn> ());
-				}
-				this.dialWait [remoteID].Add (conn);
-
-				this.s.BeginWrite (buf, 0, buf.Length, (IAsyncResult result) => {
-					this.s.EndWrite (result);
-				}, remoteID);
+				this.TrySend (buf);
 
 				return conn;
 			}
@@ -155,9 +151,7 @@ namespace fastway
 					bw.Write (msg);
 
 					byte[] buf = ms.GetBuffer ();
-					this.s.BeginWrite (buf, 0, buf.Length, (IAsyncResult result) => {
-						this.s.EndWrite(result);
-					}, null);
+					this.TrySend(buf);
 				}
 			}
 		}
@@ -189,80 +183,93 @@ namespace fastway
 					bw.Write (connID);
 				}
 			}
-
-			this.s.BeginWrite (buf, 0, buf.Length, (IAsyncResult result) => {
-				this.s.EndWrite(result);
-			}, null);
+			this.TrySend(buf);
 		}
 
 		private void MsgLoop()
 		{
-			byte[] head = new byte[4];
-			this.s.BeginRead (head, 0, 4, (IAsyncResult result1) => {
-				byte[] buf = (byte[])result1.AsyncState;
-				this.s.EndRead(result1);
+			try {
+				byte[] head = new byte[4];
+				this.s.BeginRead (head, 0, 4, (IAsyncResult result1) => {
+					byte[] buf = (byte[])result1.AsyncState;
 
-				// decode length
-				int length;
-				using (MemoryStream ms = new MemoryStream (buf)) {
-					using (BinaryReader br = new BinaryReader (ms)) {
-						length = (int)br.ReadUInt32 ();
-					}
-				}
-
-				buf = new byte[length];
-				this.s.BeginRead (buf, 0, length, (IAsyncResult result2) => {
-					byte[] body = (byte[])result2.AsyncState;
-					this.s.EndRead(result2);
-
-					// decode conn id
-					uint connID;
-					using (MemoryStream ms = new MemoryStream (body)) {
-						using (BinaryReader br = new BinaryReader (ms)) {
-							connID = br.ReadUInt32 ();
-						}
-					}
-
-					// dispatch message
-					if (connID != 0) {
-						Conn conn;
-						lock (this) {
-							if (!this.connections.TryGetValue(connID, out conn)) {
-								this.Close(connID, null);
-								goto END;
-							}
-						}
-						lock (conn) {
-							conn.waitRecv.Enqueue(body);
-						}
-						END:
-						this.MsgLoop();
+					try {
+						this.s.EndRead(result1);
+					} catch {
+						this.Close();
 						return;
 					}
 
-					// handle command
-					switch (body[4]) {
-					case 1:
-						this.HandleAcceptCmd(body);
-						break;
-					case 2:
-						this.HandleConnectCmd(body);
-						break;
-					case 3:
-						this.HandleRefuseCmd(body);
-						break;
-					case 4:
-						this.HandleCloseCmd(body);
-						break;
-					case 5:
-						this.HandlePingCmd();
-						break;
-					default:
-						throw new Exception("Unsupported Gateway Command");
+					// decode length
+					int length;
+					using (MemoryStream ms = new MemoryStream (buf)) {
+						using (BinaryReader br = new BinaryReader (ms)) {
+							length = (int)br.ReadUInt32 ();
+						}
 					}
-					this.MsgLoop();
-				}, buf);
-			}, head);
+
+					buf = new byte[length];
+					this.s.BeginRead (buf, 0, length, (IAsyncResult result2) => {
+						byte[] body = (byte[])result2.AsyncState;
+
+						try {
+							this.s.EndRead(result2);
+						} catch {
+							this.Close();
+							return;
+						}
+
+						// decode conn id
+						uint connID;
+						using (MemoryStream ms = new MemoryStream (body)) {
+							using (BinaryReader br = new BinaryReader (ms)) {
+								connID = br.ReadUInt32 ();
+							}
+						}
+
+						// dispatch message
+						if (connID != 0) {
+							Conn conn;
+							lock (this) {
+								if (!this.connections.TryGetValue(connID, out conn)) {
+									this.Close(connID, null);
+									goto END;
+								}
+							}
+							lock (conn) {
+								conn.waitRecv.Enqueue(body);
+							}
+							END:
+							this.MsgLoop();
+							return;
+						}
+
+						// handle command
+						switch (body[4]) {
+						case 1:
+							this.HandleAcceptCmd(body);
+							break;
+						case 2:
+							this.HandleConnectCmd(body);
+							break;
+						case 3:
+							this.HandleRefuseCmd(body);
+							break;
+						case 4:
+							this.HandleCloseCmd(body);
+							break;
+						case 5:
+							this.HandlePingCmd();
+							break;
+						default:
+							throw new Exception("Unsupported Gateway Command");
+						}
+						this.MsgLoop();
+					}, buf);
+				}, head);
+			} catch {
+				this.Close();
+			}
 		}
 
 		private void HandleAcceptCmd(byte[] body)
@@ -365,10 +372,16 @@ namespace fastway
 					bw.Write ((byte)5);
 				}
 			}
+			this.TrySend (buf);
+		}
 
-			this.s.BeginWrite (buf, 0, buf.Length, (IAsyncResult result) => {
-				this.s.EndWrite(result);
-			}, null);
+		private void TrySend(byte[] buf)
+		{
+			try {
+				this.s.BeginWrite (buf, 0, buf.Length, null, null);
+			} catch {
+				this.Close();
+			}
 		}
 	}
 }
