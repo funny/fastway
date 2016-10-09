@@ -222,3 +222,24 @@ func Test_BadHandshake(t *testing.T) {
 	_, err = TestProto.serverAuth(conn2, []byte("1"), time.Second)
 	utest.NotNilNow(t, err)
 }
+
+func XXOO() interface{} {
+	return make([]byte, 1)
+}
+
+func OOXX() interface{} {
+	m := make([]byte, 1)
+	return &m
+}
+
+func Benchmark_Bytes(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		var _ []byte = XXOO().([]byte)
+	}
+}
+
+func Benchmark_BytesPtr(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		var _ []byte = *(OOXX().(*[]byte))
+	}
+}
