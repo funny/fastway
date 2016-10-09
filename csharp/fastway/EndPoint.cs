@@ -191,7 +191,6 @@ namespace fastway
 		private void ReadHead()
 		{
 			try {
-				byte[] buf = new byte[4];
 				this.s.BeginRead (this.headBuf, 0, 4, (IAsyncResult result) => {
 					if (!result.IsCompleted) {
 						this.Close();
