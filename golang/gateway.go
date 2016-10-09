@@ -200,10 +200,10 @@ L:
 			if gs.gateway.send(gs.session, gs.gateway.encodePingCmd()) != nil {
 				break L
 			}
-			session.Codec().(*codec).conn.SetWriteDeadline(time.Time{})
 
 			select {
 			case <-gs.pingChan:
+				session.Codec().(*codec).conn.SetWriteDeadline(time.Time{})
 			case <-gs.gateway.timer.After(pingInterval):
 				break L
 			case <-gs.disposeChan:
