@@ -17,9 +17,12 @@
 调用示例1 - 连接到网关：
 
 ```csharp
-var tcpClient = new System.Net.Sockets.TcpClient (GatewayIP, GatewayPort);
-var netStream = tcpClient.GetStream ();
-var endPoint = new fastway.EndPoint (netStream);
+var endPoint = new fastway.EndPoint (
+	new System.Net.Sockets.TcpClient (
+		GatewayIP, 
+		GatewayPort
+	).GetStream ()
+);
 ```
 
 调用示例2 - 连接到服务端：
