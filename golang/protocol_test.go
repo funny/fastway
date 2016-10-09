@@ -224,22 +224,26 @@ func Test_BadHandshake(t *testing.T) {
 }
 
 func XXOO() interface{} {
-	return make([]byte, 1)
+	return make([]byte, 100)
 }
 
 func OOXX() interface{} {
-	m := make([]byte, 1)
+	m := make([]byte, 100)
 	return &m
 }
 
 func Benchmark_Bytes(b *testing.B) {
+	var x []byte
 	for i := 0; i < b.N; i++ {
-		var _ []byte = XXOO().([]byte)
+		x = XXOO().([]byte)
 	}
+	x[0] = 1
 }
 
 func Benchmark_BytesPtr(b *testing.B) {
+	var x []byte
 	for i := 0; i < b.N; i++ {
-		var _ []byte = *(OOXX().(*[]byte))
+		x = *(OOXX().(*[]byte))
 	}
+	x[0] = 1
 }
