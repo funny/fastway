@@ -110,6 +110,7 @@ func (g *Gateway) ServeServers(lsn net.Listener, key string, authTimeout time.Du
 	g.servers[1] = link.NewServer(lsn, link.ProtocolFunc(func(rw io.ReadWriter) (link.Codec, link.Context, error) {
 		serverID, err := g.serverAuth(rw.(net.Conn), []byte(key), authTimeout)
 		if err != nil {
+			log.Printf("error happends when accept server from %s: %s", rw.(net.Conn).RemoteAddr(), err)
 			return nil, nil, err
 		}
 		log.Printf("accept server %d from %s", serverID, rw.(net.Conn).RemoteAddr())
