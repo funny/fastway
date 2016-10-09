@@ -15,15 +15,12 @@ namespace fastway_test
 			var conn = endPoint.Dial (10086);
 			var random = new Random ();
 
-			Thread.Sleep (1000 * 5);
+			//Thread.Sleep (1000 * 5);
 
 			for (var i = 0; i < 100000; i++) {
 				var n = random.Next (1000, 2000);
 				var msg1 = new byte[n];
-
-				for (var j = 0; j < n; j++) {
-					msg1 [j] = (byte)random.Next (0, 256);
-				}
+				random.NextBytes(msg1);
 
 				if (!conn.Send (msg1)) {
 					Console.WriteLine ("send failed");
@@ -31,12 +28,16 @@ namespace fastway_test
 				}
 
 				byte[] msg2 = null;
-				while (msg2 == null) {
+				for (;;) {
 					msg2 = conn.Receive ();
-					if (msg2 != null && msg2.Length == 0) {
+					if (msg2 == null) {
 						Console.WriteLine ("msg2.Length == 0");
 						return;
 					}
+					if (msg2 == Conn.NoMsg) {
+						continue;
+					}
+					break;
 				}
 
 				for (var j = 0; j < n; j++) {

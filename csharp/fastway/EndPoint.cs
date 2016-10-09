@@ -7,6 +7,8 @@ namespace fastway
 {
 	public class Conn
 	{
+		public static readonly byte[] NoMsg = new byte[0];
+
 		private EndPoint p;
 		private uint remoteID;
 
@@ -34,10 +36,10 @@ namespace fastway
 		{
 			lock (this) {
 				if (this.closed)
-					return new byte[0];
+					return null;
 				
 				if (this.waitRecv.Count == 0)
-					return null;
+					return NoMsg;
 				
 				return this.waitRecv.Dequeue ();
 			}
