@@ -1,6 +1,7 @@
 package fastway
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -187,6 +188,7 @@ func (gs *gwState) watcher(session *link.Session, pingInterval time.Duration) {
 L:
 	for {
 		select {
+		case <-gs.pingChan:
 		case <-gs.gateway.timer.After(pingInterval):
 			lastActive := atomic.LoadInt64(&gs.lastActive)
 			if time.Now().UnixNano()-lastActive < int64(pingInterval) {
@@ -198,16 +200,14 @@ L:
 				break L
 			}
 			session.Codec().(*codec).conn.SetWriteDeadline(time.Time{})
-		case <-gs.pingChan:
-			continue
-		case <-gs.disposeChan:
-			break L
-		}
 
-		select {
-		case <-gs.pingChan:
-		case <-gs.gateway.timer.After(pingInterval):
-			break L
+			select {
+			case <-gs.pingChan:
+			case <-gs.gateway.timer.After(pingInterval):
+				break L
+			case <-gs.disposeChan:
+				break L
+			}
 		case <-gs.disposeChan:
 			break L
 		}
@@ -240,7 +240,6 @@ func (g *Gateway) handleSession(id uint32, session *link.Session, side, maxConn 
 
 		msg := *(buf.(*[]byte))
 		connID := g.decodePacket(msg)
-
 		if connID == 0 {
 			g.processCmd(msg, session, state, side, otherSide, maxConn)
 			continue
@@ -286,7 +285,7 @@ func (g *Gateway) processCmd(msg []byte, session *link.Session, state *gwState, 
 
 	default:
 		g.free(msg)
-		panic("Unsupported Gateway Command")
+		panic(fmt.Sprintf("Unsupported Gateway Command: %d", g.decodeCmd(msg)))
 	}
 }
 
@@ -340,12 +339,9 @@ func (g *Gateway) closeVirtualConn(connID uint32) {
 		state.Lock()
 		defer state.Unlock()
 		if state.disposed {
-			return
+			continue
 		}
 		delete(state.virtualConns, connID)
-	}
-
-	for i := 0; i < 2; i++ {
 		g.send(pair[i], g.encodeCloseCmd(connID))
 	}
 }
