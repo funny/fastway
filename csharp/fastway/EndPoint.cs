@@ -86,7 +86,7 @@ namespace fastway
 			this.dialWait = new Dictionary<uint, List<Conn>> ();
 			this.connections = new Dictionary<uint, Conn>();
 
-			this.MsgLoop ();
+			this.ReadHead ();
 		}
 
 		public void Close()
@@ -186,20 +186,19 @@ namespace fastway
 			this.TrySend(buf);
 		}
 
-		private void MsgLoop()
+		private void ReadHead()
 		{
 			try {
 				byte[] head = new byte[4];
-				this.s.BeginRead (head, 0, 4, (IAsyncResult result1) => {
-					byte[] buf = (byte[])result1.AsyncState;
-
-					try {
-						this.s.EndRead(result1);
-					} catch {
+				this.s.BeginRead (head, 0, 4, (IAsyncResult result) => {
+					if (!result.IsCompleted) {
 						this.Close();
 						return;
 					}
 
+					byte[] buf = (byte[])result.AsyncState;
+					this.s.EndRead(result);
+				
 					// decode length
 					int length;
 					using (MemoryStream ms = new MemoryStream (buf)) {
@@ -208,67 +207,82 @@ namespace fastway
 						}
 					}
 
-					buf = new byte[length];
-					this.s.BeginRead (buf, 0, length, (IAsyncResult result2) => {
-						byte[] body = (byte[])result2.AsyncState;
+					if (length == 0) {
+						this.Close();
+						return;
+					}
 
-						try {
-							this.s.EndRead(result2);
-						} catch {
-							this.Close();
-							return;
-						}
-
-						// decode conn id
-						uint connID;
-						using (MemoryStream ms = new MemoryStream (body)) {
-							using (BinaryReader br = new BinaryReader (ms)) {
-								connID = br.ReadUInt32 ();
-							}
-						}
-
-						// dispatch message
-						if (connID != 0) {
-							Conn conn;
-							lock (this) {
-								if (!this.connections.TryGetValue(connID, out conn)) {
-									this.Close(connID, null);
-									goto END;
-								}
-							}
-							lock (conn) {
-								conn.waitRecv.Enqueue(body);
-							}
-							END:
-							this.MsgLoop();
-							return;
-						}
-
-						// handle command
-						switch (body[4]) {
-						case 1:
-							this.HandleAcceptCmd(body);
-							break;
-						case 2:
-							this.HandleConnectCmd(body);
-							break;
-						case 3:
-							this.HandleRefuseCmd(body);
-							break;
-						case 4:
-							this.HandleCloseCmd(body);
-							break;
-						case 5:
-							this.HandlePingCmd();
-							break;
-						default:
-							throw new Exception("Unsupported Gateway Command");
-						}
-						this.MsgLoop();
-					}, buf);
+					this.ReadBody(length);
 				}, head);
 			} catch {
 				this.Close();
+			}
+		}
+
+		private void ReadBody(int length)
+		{
+			try {
+				byte[] buf = new byte[length];
+				this.s.BeginRead (buf, 0, length, (IAsyncResult result) => {
+					if (!result.IsCompleted) {
+						this.Close();
+						return;
+					}
+
+					byte[] body = (byte[])result.AsyncState;
+					this.s.EndRead(result);
+
+					// decode conn id
+					uint connID;
+					using (MemoryStream ms = new MemoryStream (body)) {
+						using (BinaryReader br = new BinaryReader (ms)) {
+							connID = br.ReadUInt32 ();
+						}
+					}
+
+					this.HandleMessage(connID, body);
+					this.ReadHead();
+				}, buf);
+			} catch {
+				this.Close();
+			}
+		}
+
+		private void HandleMessage(uint connID, byte[] body)
+		{
+			if (connID != 0) {
+				Conn conn;
+				lock (this) {
+					if (!this.connections.TryGetValue(connID, out conn)) {
+						this.Close(connID, null);
+						return;
+					}
+				}
+				lock (conn) {
+					conn.waitRecv.Enqueue(body);
+				}
+				return;
+			}
+
+			// handle command
+			switch (body[4]) {
+			case 1:
+				this.HandleAcceptCmd(body);
+				break;
+			case 2:
+				this.HandleConnectCmd(body);
+				break;
+			case 3:
+				this.HandleRefuseCmd(body);
+				break;
+			case 4:
+				this.HandleCloseCmd(body);
+				break;
+			case 5:
+				this.HandlePingCmd();
+				break;
+			default:
+				throw new Exception("Unsupported Gateway Command");
 			}
 		}
 
