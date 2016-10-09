@@ -75,6 +75,7 @@ namespace fastway
 	{
 		private Stream s;
 		private bool closed;
+		private byte[] headBuf;
 		private Queue<Conn> waitAccept;
 		private Dictionary<uint /* remote id */, List<Conn>> dialWait;
 		private Dictionary<uint /* conn id */, Conn> connections;
@@ -82,6 +83,7 @@ namespace fastway
 		public EndPoint (Stream s)
 		{
 			this.s = s;
+			this.headBuf = new byte[4];
 			this.waitAccept = new Queue<Conn> ();
 			this.dialWait = new Dictionary<uint, List<Conn>> ();
 			this.connections = new Dictionary<uint, Conn>();
@@ -189,19 +191,17 @@ namespace fastway
 		private void ReadHead()
 		{
 			try {
-				byte[] head = new byte[4];
-				this.s.BeginRead (head, 0, 4, (IAsyncResult result) => {
+				byte[] buf = new byte[4];
+				this.s.BeginRead (this.headBuf, 0, 4, (IAsyncResult result) => {
 					if (!result.IsCompleted) {
 						this.Close();
 						return;
 					}
-
-					byte[] buf = (byte[])result.AsyncState;
 					this.s.EndRead(result);
 				
 					// decode length
 					int length;
-					using (MemoryStream ms = new MemoryStream (buf)) {
+					using (MemoryStream ms = new MemoryStream (this.headBuf)) {
 						using (BinaryReader br = new BinaryReader (ms)) {
 							length = (int)br.ReadUInt32 ();
 						}
@@ -213,7 +213,7 @@ namespace fastway
 					}
 
 					this.ReadBody(length);
-				}, head);
+				}, null);
 			} catch {
 				this.Close();
 			}
@@ -232,7 +232,6 @@ namespace fastway
 					byte[] body = (byte[])result.AsyncState;
 					this.s.EndRead(result);
 
-					// decode conn id
 					uint connID;
 					using (MemoryStream ms = new MemoryStream (body)) {
 						using (BinaryReader br = new BinaryReader (ms)) {
@@ -264,7 +263,6 @@ namespace fastway
 				return;
 			}
 
-			// handle command
 			switch (body[4]) {
 			case 1:
 				this.HandleAcceptCmd(body);
