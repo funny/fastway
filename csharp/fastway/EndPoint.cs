@@ -83,7 +83,7 @@ namespace fastway
 		public EndPoint (Stream s)
 		{
 			this.s = s;
-			this.headBuf = new byte[4];
+			this.headBuf = new byte[8];
 			this.waitAccept = new Queue<Conn> ();
 			this.dialWait = new Dictionary<uint, List<Conn>> ();
 			this.connections = new Dictionary<uint, Conn>();
@@ -191,18 +191,19 @@ namespace fastway
 		private void ReadHead()
 		{
 			try {
-				this.s.BeginRead (this.headBuf, 0, 4, (IAsyncResult result) => {
+				this.s.BeginRead (this.headBuf, 0, 8, (IAsyncResult result) => {
 					if (!result.IsCompleted) {
 						this.Close();
 						return;
 					}
 					this.s.EndRead(result);
 				
-					// decode length
 					int length;
+					uint connID;
 					using (MemoryStream ms = new MemoryStream (this.headBuf)) {
 						using (BinaryReader br = new BinaryReader (ms)) {
 							length = (int)br.ReadUInt32 ();
+							connID = br.ReadUInt32();
 						}
 					}
 
@@ -211,14 +212,14 @@ namespace fastway
 						return;
 					}
 
-					this.ReadBody(length);
+					this.ReadBody(length - 4, connID);
 				}, null);
 			} catch {
 				this.Close();
 			}
 		}
 
-		private void ReadBody(int length)
+		private void ReadBody(int length, uint connID)
 		{
 			try {
 				byte[] buf = new byte[length];
@@ -230,13 +231,6 @@ namespace fastway
 
 					byte[] body = (byte[])result.AsyncState;
 					this.s.EndRead(result);
-
-					uint connID;
-					using (MemoryStream ms = new MemoryStream (body)) {
-						using (BinaryReader br = new BinaryReader (ms)) {
-							connID = br.ReadUInt32 ();
-						}
-					}
 
 					this.HandleMessage(connID, body);
 					this.ReadHead();
@@ -262,7 +256,7 @@ namespace fastway
 				return;
 			}
 
-			switch (body[4]) {
+			switch (body[0]) {
 			case 1:
 				this.HandleAcceptCmd(body);
 				break;
@@ -287,7 +281,7 @@ namespace fastway
 		{
 			uint connID;
 			uint remoteID;
-			using (MemoryStream ms = new MemoryStream (body, 5, 8)) {
+			using (MemoryStream ms = new MemoryStream (body, 1, 8)) {
 				using (BinaryReader br = new BinaryReader (ms)) {
 					connID = br.ReadUInt32 ();
 					remoteID = br.ReadUInt32();
@@ -319,7 +313,7 @@ namespace fastway
 		{
 			uint connID;
 			uint remoteID;
-			using (MemoryStream ms = new MemoryStream (body, 5, 8)) {
+			using (MemoryStream ms = new MemoryStream (body, 1, 8)) {
 				using (BinaryReader br = new BinaryReader (ms)) {
 					connID = br.ReadUInt32 ();
 					remoteID = br.ReadUInt32();
@@ -336,7 +330,7 @@ namespace fastway
 		private void HandleRefuseCmd(byte[] body)
 		{
 			uint remoteID;
-			using (MemoryStream ms = new MemoryStream (body, 5, 4)) {
+			using (MemoryStream ms = new MemoryStream (body, 1, 4)) {
 				using (BinaryReader br = new BinaryReader (ms)) {
 					remoteID = br.ReadUInt32();
 				}
@@ -357,7 +351,7 @@ namespace fastway
 		private void HandleCloseCmd(byte[] body)
 		{
 			uint connID;
-			using (MemoryStream ms = new MemoryStream (body, 5, 4)) {
+			using (MemoryStream ms = new MemoryStream (body, 1, 4)) {
 				using (BinaryReader br = new BinaryReader (ms)) {
 					connID = br.ReadUInt32();
 				}

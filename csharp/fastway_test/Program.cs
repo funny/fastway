@@ -41,7 +41,7 @@ namespace fastway_test
 				}
 
 				for (var j = 0; j < n; j++) {
-					if (msg1 [j] != msg2 [j + 4]) {
+					if (msg1 [j] != msg2 [j]) {
 						Console.WriteLine ("msg1 [j] != msg2 [j]");
 						return;
 					}
