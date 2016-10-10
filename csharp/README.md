@@ -17,7 +17,7 @@
 调用示例1 - 连接到网关：
 
 ```csharp
-var endPoint = new fastway.EndPoint (
+var endPoint = new Fastway.EndPoint (
 	new System.Net.Sockets.TcpClient (
 		GatewayIP, 
 		GatewayPort
