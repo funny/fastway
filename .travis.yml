@@ -9,10 +9,10 @@ install:
 
 script:
     - go vet -x
-    - go vet -x github.com/fast/fastway/golang
+    - go vet -x github.com/funny/fastway/golang
     - go install
-    - go install github.com/fast/fastway/golang
-    - go test -race -coverprofile=coverage.txt -covermode=atomic -v github.com/fast/fastway/golang
+    - go install github.com/funny/fastway/golang
+    - go test -race -coverprofile=coverage.txt -covermode=atomic -v github.com/funny/fastway/golang
 
 after_success:
     - bash <(curl -s https://codecov.io/bash)

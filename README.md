@@ -2,10 +2,10 @@
 ====
 
 [![Go Foundation](https://img.shields.io/badge/go-foundation-green.svg)](http://golangfoundation.org)
-[![Go Report Card](https://goreportcard.com/badge/github.com/fast/fastway)](https://goreportcard.com/report/github.com/fast/fastway)
-[![Build Status](https://travis-ci.org/fast/fastway.svg?branch=master)](https://travis-ci.org/fast/fastway)
-[![codecov](https://codecov.io/gh/fast/fastway/branch/master/graph/badge.svg)](https://codecov.io/gh/fast/fastway)
-[![GoDoc](https://img.shields.io/badge/api-reference-blue.svg)](https://godoc.org/github.com/fast/fastway/proto)
+[![Go Report Card](https://goreportcard.com/badge/github.com/funny/fastway)](https://goreportcard.com/report/github.com/funny/fastway)
+[![Build Status](https://travis-ci.org/funny/fastway.svg?branch=master)](https://travis-ci.org/funny/fastway)
+[![codecov](https://codecov.io/gh/funny/fastway/branch/master/graph/badge.svg)](https://codecov.io/gh/funny/fastway)
+[![GoDoc](https://img.shields.io/badge/api-reference-blue.svg)](https://godoc.org/github.com/funny/fastway/golang)
 
 本网关是一个游戏用网关，它负责客户端和服务端之间的消息转发。
 
@@ -19,7 +19,7 @@
 说明
 ====
 
-<p align="center"><img src="https://rawgit.com/fast/fastway/master/README.svg" alt="Gateway" /></p>
+<p align="center"><img src="https://rawgit.com/funny/fastway/master/README.svg" alt="Gateway" /></p>
 <p align="center"><b>图1 - 拓扑结构</b></p>
 
 基本逻辑：
