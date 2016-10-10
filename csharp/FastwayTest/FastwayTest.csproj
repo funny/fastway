@@ -5,8 +5,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{B619B4DF-6F5C-4F0B-86C2-F3FA37EB9D44}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>fastway_test</RootNamespace>
-    <AssemblyName>fastway_test</AssemblyName>
+    <RootNamespace>FastwayTest</RootNamespace>
+    <AssemblyName>FastwayTest</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -36,9 +36,9 @@
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
-    <ProjectReference Include="..\fastway\fastway.csproj">
+    <ProjectReference Include="..\Fastway\Fastway.csproj">
       <Project>{4FB07D26-3706-44D3-A6DD-519E0F698869}</Project>
-      <Name>fastway</Name>
+      <Name>Fastway</Name>
     </ProjectReference>
   </ItemGroup>
 </Project>

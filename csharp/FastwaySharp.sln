@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "fastway", "fastway\fastway.csproj", "{4FB07D26-3706-44D3-A6DD-519E0F698869}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fastway", "Fastway\Fastway.csproj", "{4FB07D26-3706-44D3-A6DD-519E0F698869}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "fastway_test", "fastway_test\fastway_test.csproj", "{B619B4DF-6F5C-4F0B-86C2-F3FA37EB9D44}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastwayTest", "FastwayTest\FastwayTest.csproj", "{B619B4DF-6F5C-4F0B-86C2-F3FA37EB9D44}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

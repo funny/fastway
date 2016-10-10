@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Threading;
 using System.Net.Sockets;
-using fastway;
+using Fastway;
 
-namespace fastway_test
+namespace FastwayTest
 {
 	class MainClass
 	{
