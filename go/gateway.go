@@ -90,14 +90,14 @@ func (g *Gateway) getPhysicalConn(connID uint32, side int) *link.Session {
 // maxConn limits max virtual connection number for each client.
 // bufferSize settings bufio.Reader memory usage for each client.
 // sendChanSize settings async sending behavior for clients.
-// pingInterval is the seconds of that gateway not receiving message from client will send PING command to check it alive.
-func (g *Gateway) ServeClients(lsn net.Listener, maxConn, bufferSize, sendChanSize int, pingInterval time.Duration) {
+// idleTimeout is the idle timeout of client connections.
+func (g *Gateway) ServeClients(lsn net.Listener, maxConn, bufferSize, sendChanSize int, idleTimeout time.Duration) {
 	g.servers[0] = link.NewServer(lsn, link.ProtocolFunc(func(rw io.ReadWriter) (link.Codec, link.Context, error) {
 		return g.newCodec(rw.(net.Conn), bufferSize), nil, nil
 	}), sendChanSize)
 
 	g.servers[0].Serve(link.HandlerFunc(func(session *link.Session, ctx link.Context, err error) {
-		g.handleSession(atomic.AddUint32(&g.physicalConnID, 1), session, 0, maxConn, pingInterval)
+		g.handleSession(atomic.AddUint32(&g.physicalConnID, 1), session, 0, maxConn, idleTimeout)
 	}))
 }
 
@@ -105,8 +105,8 @@ func (g *Gateway) ServeClients(lsn net.Listener, maxConn, bufferSize, sendChanSi
 // maxConn limits max virtual connection number for each server.
 // bufferSize settings bufio.Reader memory usage for each servers.
 // sendChanSize settings async sending behavior for servers.
-// pingInterval is the seconds of that gateway not receiving message from server will send PING command to check it alive.
-func (g *Gateway) ServeServers(lsn net.Listener, key string, authTimeout time.Duration, bufferSize, sendChanSize int, pingInterval time.Duration) {
+// idleTimeout is the idle timeout of server connections.
+func (g *Gateway) ServeServers(lsn net.Listener, key string, authTimeout time.Duration, bufferSize, sendChanSize int, idleTimeout time.Duration) {
 	g.servers[1] = link.NewServer(lsn, link.ProtocolFunc(func(rw io.ReadWriter) (link.Codec, link.Context, error) {
 		serverID, err := g.serverAuth(rw.(net.Conn), []byte(key), authTimeout)
 		if err != nil {
@@ -121,7 +121,7 @@ func (g *Gateway) ServeServers(lsn net.Listener, key string, authTimeout time.Du
 		if err != nil {
 			return
 		}
-		g.handleSession(ctx.(uint32), session, 1, 0, pingInterval)
+		g.handleSession(ctx.(uint32), session, 1, 0, idleTimeout)
 	}))
 }
 
@@ -137,7 +137,6 @@ type gwState struct {
 	id           uint32
 	gateway      *Gateway
 	session      *link.Session
-	pingTimer    *time.Timer
 	lastActive   int64
 	pingChan     chan struct{}
 	watchChan    chan struct{}
@@ -147,25 +146,23 @@ type gwState struct {
 	virtualConns map[uint32]struct{}
 }
 
-func (g *Gateway) newSessionState(id uint32, session *link.Session, pingInterval time.Duration) *gwState {
+func (g *Gateway) newSessionState(id uint32, session *link.Session, idleTimeout time.Duration) *gwState {
 	gs := &gwState{
 		id:           id,
 		session:      session,
 		gateway:      g,
 		watchChan:    make(chan struct{}),
-		pingTimer:    time.NewTimer(pingInterval),
 		pingChan:     make(chan struct{}),
 		disposeChan:  make(chan struct{}),
 		virtualConns: make(map[uint32]struct{}),
 	}
-	go gs.watcher(session, pingInterval)
+	go gs.watcher(session, idleTimeout)
 	return gs
 }
 
 func (gs *gwState) Dispose() {
 	gs.disposeOnce.Do(func() {
 		close(gs.disposeChan)
-		gs.pingTimer.Stop()
 		gs.session.Close()
 
 		gs.Lock()
@@ -185,28 +182,13 @@ func (gs *gwState) Dispose() {
 	})
 }
 
-func (gs *gwState) watcher(session *link.Session, pingInterval time.Duration) {
+func (gs *gwState) watcher(session *link.Session, idleTimeout time.Duration) {
 L:
 	for {
 		select {
 		case <-gs.pingChan:
-		case <-gs.gateway.timer.After(pingInterval):
-			lastActive := atomic.LoadInt64(&gs.lastActive)
-			if time.Now().UnixNano()-lastActive < int64(pingInterval) {
-				continue
-			}
-
-			session.Codec().(*codec).conn.SetWriteDeadline(time.Now().Add(pingInterval))
-			if gs.gateway.send(gs.session, gs.gateway.encodePingCmd()) != nil {
-				break L
-			}
-
-			select {
-			case <-gs.pingChan:
-				session.Codec().(*codec).conn.SetWriteDeadline(time.Time{})
-			case <-gs.gateway.timer.After(pingInterval):
-				break L
-			case <-gs.disposeChan:
+		case <-gs.gateway.timer.After(idleTimeout):
+			if time.Since(time.Unix(atomic.LoadInt64(&gs.lastActive), 0)) >= idleTimeout {
 				break L
 			}
 		case <-gs.disposeChan:
@@ -216,8 +198,8 @@ L:
 	gs.Dispose()
 }
 
-func (g *Gateway) handleSession(id uint32, session *link.Session, side, maxConn int, pingInterval time.Duration) {
-	state := g.newSessionState(id, session, pingInterval)
+func (g *Gateway) handleSession(id uint32, session *link.Session, side, maxConn int, idleTimeout time.Duration) {
+	state := g.newSessionState(id, session, idleTimeout)
 	session.State = state
 	g.addPhysicalConn(id, side, session)
 
@@ -232,7 +214,7 @@ func (g *Gateway) handleSession(id uint32, session *link.Session, side, maxConn 
 	otherSide := (side + 1) % 2
 
 	for {
-		atomic.StoreInt64(&state.lastActive, time.Now().UnixNano())
+		atomic.StoreInt64(&state.lastActive, time.Now().Unix())
 
 		buf, err := session.Receive()
 		if err != nil {
@@ -283,6 +265,7 @@ func (g *Gateway) processCmd(msg []byte, session *link.Session, state *gwState, 
 	case pingCmd:
 		state.pingChan <- struct{}{}
 		g.free(msg)
+		g.send(session, g.encodePingCmd())
 
 	default:
 		g.free(msg)

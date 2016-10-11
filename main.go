@@ -26,7 +26,7 @@ var (
 	clientMaxConn         = flag.Int("ClientMaxConn", 16, "Limit max virtual connections for each client.")
 	clientBufferSize      = flag.Int("ClientBufferSize", 2*1024, "Setting bufio.Reader's buffer size.")
 	clientSendChanSize    = flag.Int("ClientSendChanSize", 1024, "Tunning client session's async behavior.")
-	clientPingInterval    = flag.Duration("ClientPingInterval", 30*time.Second, "The interval of that gateway sending PING command to client.")
+	clientIdleTimeout     = flag.Duration("ClientIdleTimeout", 30*time.Second, "Idle timeout of client connections.")
 	clientSnetEnable      = flag.Bool("ClientSnetEnable", false, "Enable/Disable snet protocol for clients.")
 	clientSnetEncrypt     = flag.Bool("ClientSnetEncrypt", false, "Enable/Disable client snet protocol encrypt feature.")
 	clientSnetBuffer      = flag.Int("ClientSnetBuffer", 64*1024, "Client snet protocol rewriter buffer size.")
@@ -38,7 +38,7 @@ var (
 	serverAuthKey         = flag.String("ServerAuthKey", "", "The private key used to auth server connection.")
 	serverBufferSize      = flag.Int("ServerBufferSize", 64*1024, "Buffer size of bufio.Reader for server connections.")
 	serverSendChanSize    = flag.Int("ServerSendChanSize", 102400, "Tunning server session's async behavior, this value must be greater than zero.")
-	serverPingInterval    = flag.Duration("ServerPingInterval", 30*time.Second, "The interval of that gateway sending PING command to server.")
+	serverIdleTimeout     = flag.Duration("ServerIdleTimeout", 30*time.Second, "Idle timeout of server connections.")
 	serverSnetEnable      = flag.Bool("ServerSnetEnable", false, "Enable/Disable snet protocol for server.")
 	serverSnetEncrypt     = flag.Bool("ServerSnetEncrypt", false, "Enable/Disable server snet protocol encrypt feature.")
 	serverSnetBuffer      = flag.Int("ServerSnetBuffer", 64*1024, "Server snet protocol rewriter buffer size.")
@@ -78,7 +78,7 @@ func main() {
 		*clientMaxConn,
 		*clientBufferSize,
 		*clientSendChanSize,
-		*clientPingInterval,
+		*clientIdleTimeout,
 	)
 
 	go gw.ServeServers(
@@ -93,7 +93,7 @@ func main() {
 		*serverAuthTimeout,
 		*serverBufferSize,
 		*serverSendChanSize,
-		*serverPingInterval,
+		*serverIdleTimeout,
 	)
 
 	cmd.Shell("fastway")

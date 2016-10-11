@@ -7,6 +7,8 @@ import (
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/funny/link"
 )
@@ -74,14 +76,16 @@ type virtualCodec struct {
 	connID       uint32
 	recvChan     chan []byte
 	closeOnce    sync.Once
+	lastActive   *int64
 }
 
-func (p *protocol) newVirtualCodec(physicalConn *link.Session, connID uint32, recvChanSize int) *virtualCodec {
+func (p *protocol) newVirtualCodec(physicalConn *link.Session, connID uint32, recvChanSize int, lastActive *int64) *virtualCodec {
 	return &virtualCodec{
 		protocol:     p,
 		connID:       connID,
 		physicalConn: physicalConn,
 		recvChan:     make(chan []byte, recvChanSize),
+		lastActive:   lastActive,
 	}
 }
 
@@ -105,7 +109,11 @@ func (c *virtualCodec) Send(msg interface{}) error {
 	copy(buf[cmdConnID+cmdIDSize:], msg2)
 	binary.LittleEndian.PutUint32(buf, uint32(cmdIDSize+len(msg2)))
 	binary.LittleEndian.PutUint32(buf[cmdConnID:], c.connID)
-	return c.send(c.physicalConn, buf)
+	err := c.send(c.physicalConn, buf)
+	if err != nil {
+		atomic.StoreInt64(c.lastActive, time.Now().Unix())
+	}
+	return err
 }
 
 func (c *virtualCodec) Close() error {

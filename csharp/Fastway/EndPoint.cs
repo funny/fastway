@@ -69,11 +69,14 @@ namespace Fastway
 				this.p.Close (this.id, this);
 			}
 		}
+
+		public 
 	}
 
 	public class EndPoint
 	{
 		private Stream s;
+		private DateTime lastActive;
 		private bool closed;
 		private byte[] headBuf;
 		private Queue<Conn> waitAccept;
@@ -89,6 +92,14 @@ namespace Fastway
 			this.connections = new Dictionary<uint, Conn>();
 
 			this.ReadHead ();
+		}
+		
+		public DateTime LastActive {
+			get {
+				lock (this) {
+					return this.lastActive;
+				}
+			}
 		}
 
 		public void Close()
@@ -156,6 +167,19 @@ namespace Fastway
 					this.TrySend(buf);
 				}
 			}
+		}
+
+		public void Ping()
+		{
+			byte[] buf = new byte[9];
+			using (MemoryStream ms = new MemoryStream (buf)) {
+				using (BinaryWriter bw = new BinaryWriter (ms)) {
+					bw.Write ((uint)5);
+					bw.Write ((uint)0);
+					bw.Write ((byte)5);
+				}
+			}
+			this.TrySend (buf);
 		}
 
 		internal void Close(uint connID, Conn conn)
@@ -242,6 +266,10 @@ namespace Fastway
 
 		private void HandleMessage(uint connID, byte[] body)
 		{
+			lock (this) {
+				this.lastActive = DateTime.Now;
+			}
+
 			if (connID != 0) {
 				Conn conn;
 				lock (this) {
@@ -270,7 +298,6 @@ namespace Fastway
 				this.HandleCloseCmd(body);
 				break;
 			case 5:
-				this.HandlePingCmd();
 				break;
 			default:
 				throw new Exception("Unsupported Gateway Command");
@@ -365,19 +392,6 @@ namespace Fastway
 					}
 				}
 			}
-		}
-
-		private void HandlePingCmd()
-		{
-			byte[] buf = new byte[9];
-			using (MemoryStream ms = new MemoryStream (buf)) {
-				using (BinaryWriter bw = new BinaryWriter (ms)) {
-					bw.Write ((uint)5);
-					bw.Write ((uint)0);
-					bw.Write ((byte)5);
-				}
-			}
-			this.TrySend (buf);
 		}
 
 		private void TrySend(byte[] buf)

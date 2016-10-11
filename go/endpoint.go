@@ -7,6 +7,7 @@ import (
 	"net"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/funny/link"
@@ -94,6 +95,7 @@ type Endpoint struct {
 	protocol
 	recvChanSize int
 	session      *link.Session
+	lastActive   int64
 	newConnMutex sync.Mutex
 	newConnChan  chan uint32
 	dialMutex    sync.Mutex
@@ -157,8 +159,18 @@ func (p *Endpoint) Close() {
 	})
 }
 
+// Ping send ping command to gateway.
+func (p *Endpoint) Ping() error {
+	return p.send(p.session, p.encodePingCmd())
+}
+
+// LastActive returns endpoint last active time.
+func (p *Endpoint) LastActive() time.Time {
+	return time.Unix(atomic.LoadInt64(&p.lastActive), 0)
+}
+
 func (p *Endpoint) addVirtualConn(connID, remoteID uint32, c chan vconn) {
-	codec := p.newVirtualCodec(p.session, connID, p.recvChanSize)
+	codec := p.newVirtualCodec(p.session, connID, p.recvChanSize, &p.lastActive)
 	session := link.NewSession(codec, 0)
 	p.virtualConns.Put(connID, session)
 	select {
@@ -177,6 +189,8 @@ func (p *Endpoint) loop() {
 		}
 	}()
 	for {
+		atomic.StoreInt64(&p.lastActive, time.Now().Unix())
+
 		msg, err := p.session.Receive()
 		if err != nil {
 			return
@@ -236,7 +250,6 @@ func (p *Endpoint) processCmd(buf []byte) {
 
 	case pingCmd:
 		p.free(buf)
-		p.send(p.session, p.encodePingCmd())
 
 	default:
 		p.free(buf)

@@ -45,8 +45,14 @@ L:
 				break L
 			}
 		}
-		time.Sleep(time.Second)
+		runtime.Gosched()
 	}
+
+	utest.IsNilNow(t, client.Ping())
+	utest.IsNilNow(t, server.Ping())
+	time.Sleep(time.Second)
+	utest.Assert(t, client.LastActive().Unix() != 0)
+	utest.Assert(t, server.LastActive().Unix() != 0)
 
 	var clientID uint32
 	var vconns [2][2]*link.Session
@@ -294,7 +300,7 @@ func Test_BadEndpoint(t *testing.T) {
 	_, err = DialServer("tcp", "127.0.0.1:0", TestPool, 123, "bad key", 3*time.Second, 2048, 1024, 10240, 10240)
 	utest.NotNilNow(t, err)
 
-	// gateway ping
+	// idle timeout
 	conn, err := net.Dial("tcp", lsn1.Addr().String())
 	utest.IsNilNow(t, err)
 	defer conn.Close()

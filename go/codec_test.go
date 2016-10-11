@@ -85,7 +85,9 @@ func Test_VirtualCodec(t *testing.T) {
 
 	codec := TestProto.newCodec(conn, 1024)
 	pconn := link.NewSession(codec, 1000)
-	vcodec := TestProto.newVirtualCodec(pconn, 123, 1024)
+
+	var lastActive int64
+	vcodec := TestProto.newVirtualCodec(pconn, 123, 1024, &lastActive)
 
 	for i := 0; i < 1000; i++ {
 		buffer1 := make([]byte, 1024)
@@ -143,7 +145,9 @@ func Test_BadVirtualCodec(t *testing.T) {
 
 	codec := TestProto.newCodec(conn, 1024)
 	pconn := link.NewSession(codec, 1000)
-	vcodec := TestProto.newVirtualCodec(pconn, 123, 1024)
+
+	var lastActive int64
+	vcodec := TestProto.newVirtualCodec(pconn, 123, 1024, &lastActive)
 
 	bigMsg := make([]byte, TestProto.maxPacketSize+1)
 	err = vcodec.Send(&bigMsg)
