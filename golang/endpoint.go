@@ -16,6 +16,39 @@ import (
 // ErrRefused happens when virtual connection couldn't dial to remote endpoint.
 var ErrRefused = errors.New("virtual connection refused")
 
+// DialClient dial to gateway and return a client endpoint.
+// addr is the gateway address.
+// pool used to pooling message buffers.
+// maxPacketSize limits max packet size.
+// bufferSize settings bufio.Reader memory usage.
+// sendChanSize settings async sending behavior for physical connection.
+// recvChanSize settings async receiving behavior for virtual connection.
+func DialClient(addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	return NewClient(conn, pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize)
+}
+
+// DialServer dial to gateway and return a server endpoint.
+// addr is the gateway address.
+// pool used to pooling message buffers.
+// serverID is the server ID of current server.
+// key is the auth key used in server handshake.
+// authTimeout is the IO waiting timeout when server handshake.
+// maxPacketSize limits max packet size.
+// bufferSize settings bufio.Reader memory usage.
+// sendChanSize settings async sending behavior for physical connection.
+// recvChanSize settings async receiving behavior for virtual connection.
+func DialServer(addr string, pool slab.Pool, serverID uint32, key string, authTimeout time.Duration, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	return NewServer(conn, pool, serverID, key, authTimeout, maxPacketSize, bufferSize, sendChanSize, recvChanSize)
+}
+
 // NewClient dial to gateway and return a client endpoint.
 // conn is the physical connection.
 // pool used to pooling message buffers.
