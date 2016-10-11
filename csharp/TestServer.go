@@ -5,7 +5,7 @@ import (
 	"net"
 	"time"
 
-	fastway "github.com/fast/fastway/golang"
+	fastway "github.com/fast/fastway/go"
 	"github.com/funny/slab"
 )
 

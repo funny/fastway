@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/funny/cmd"
-	fastway "github.com/funny/fastway/golang"
+	fastway "github.com/funny/fastway/go"
 	"github.com/funny/reuseport"
 	"github.com/funny/slab"
-	snet "github.com/funny/snet/golang"
+	snet "github.com/funny/snet/go"
 )
 
 var (

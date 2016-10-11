@@ -5,7 +5,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/funny/fastway)](https://goreportcard.com/report/github.com/funny/fastway)
 [![Build Status](https://travis-ci.org/funny/fastway.svg?branch=master)](https://travis-ci.org/funny/fastway)
 [![codecov](https://codecov.io/gh/funny/fastway/branch/master/graph/badge.svg)](https://codecov.io/gh/funny/fastway)
-[![GoDoc](https://img.shields.io/badge/api-reference-blue.svg)](https://godoc.org/github.com/funny/fastway/golang)
+[![GoDoc](https://img.shields.io/badge/api-reference-blue.svg)](https://godoc.org/github.com/funny/fastway/go)
 
 本网关是一个游戏用网关，它负责客户端和服务端之间的消息转发。
 
@@ -83,7 +83,7 @@ API
 
 本网关目前支持以下编程语言的调用：
 
-+ [Go版](https://github.com/fast/fastway/tree/master/golang)
++ [Go版](https://github.com/fast/fastway/tree/master/go)
 + [C#版](https://github.com/fast/fastway/tree/master/csharp)
 
 通讯协议细节请进一步阅读Go调用库的文档。
