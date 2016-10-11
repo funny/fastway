@@ -69,7 +69,7 @@
 | ClientAddr | 网关暴露给客户端的地址 | ":0" |
 | ClientMaxConn | 每个客户端可以创建的最大虚拟连接数 | 16 |
 | ClientBufferSize | 每个客户端连接使用的 bufio.Reader 缓冲区大小 | 2K |
-| ClientDeadline | 客户端连接不活跃超过此项设置的时长，连接将被关闭 | 30秒 |
+| ClientIdleTimeout | 客户端连接空闲超过时长，客户端应在此时间范围内发送ping命令来保活 | 30秒 |
 | ClientSendChanSize | 每个客户端连接异步发送消息用的chan缓冲区大小 | 1000 |
 | ClientSnetEnable | [是否为客户端开启snet协议](https://github.com/funny/snet) | false |
 | ClientSnetEncrypt | 是否为客户端开启snet加密 | false |
@@ -85,7 +85,7 @@
 | ServerAuthPassword | 用于验证服务端合法性的秘钥 | 空 |
 | ServerAuthTimeout | 验证服务端连接时的最大IO等待时间 | 3秒 |
 | ServerBufferSize | 每个服务端连接使用的 bufio.Reader 缓冲区大小 | 64K |
-| ServerDeadline | 服务端物理连接不活跃超过此项设置的时长，连接将被关闭 | 30秒 |
+| ServerIdleTimeout | 服务端连接空闲超过时长，服务端应在此时间范围内发送ping命令来保活 | 30秒 |
 | ServerSendChanSize | 每个服务端连接异步发送消息用的chan缓冲区大小 | 10万 |
 | ServerSnetEnable | [是否为服务端开启snet协议](https://github.com/funny/snet) | false |
 | ServerSnetEncrypt | 是否为服务端开启snet加密 | false |
