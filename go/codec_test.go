@@ -3,10 +3,8 @@ package fastway
 import (
 	"encoding/binary"
 	"io"
-	"log"
 	"math/rand"
 	"net"
-	"os"
 	"sync"
 	"testing"
 
@@ -42,12 +40,13 @@ func init() {
 		}
 	}()
 	wg.Wait()
-
-	logFile, err := os.Create("proto.test.log")
-	if err != nil {
-		panic(err)
-	}
-	log.SetOutput(logFile)
+	/*
+		logFile, err := os.Create("proto.test.log")
+		if err != nil {
+			panic(err)
+		}
+		log.SetOutput(logFile)
+	*/
 }
 
 type NullWriter struct{}

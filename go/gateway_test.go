@@ -173,7 +173,8 @@ L:
 
 	var wg sync.WaitGroup
 	var errors = make([]error, runtime.GOMAXPROCS(-1))
-	for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
+	var errorInfos = make([]string, len(errors))
+	for i := 0; i < len(errors); i++ {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
@@ -181,6 +182,7 @@ L:
 			var vconns *link.Session
 			vconns, _, errors[n] = client.Dial(123)
 			if errors[n] != nil {
+				errorInfos[n] = "dial"
 				return
 			}
 			defer vconns.Close()
@@ -194,12 +196,14 @@ L:
 
 				errors[n] = vconns.Send(&buffer1)
 				if errors[n] != nil {
+					errorInfos[n] = "send"
 					return
 				}
 
 				var buffer2 interface{}
 				buffer2, errors[n] = vconns.Receive()
 				if errors[n] != nil {
+					errorInfos[n] = "receive"
 					return
 				}
 
@@ -216,6 +220,7 @@ L:
 		utest.IsNil(t, errors[i])
 		if !failed && errors[i] != nil {
 			failed = true
+			t.Log(i, errorInfos[i], errors[i])
 		}
 	}
 	utest.Assert(t, !failed)
