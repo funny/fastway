@@ -28,10 +28,10 @@ func Test_Gateway(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	client, err := DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 10240, 10240)
+	client, err := DialClient("tcp", lsn1.Addr().String(), TestPool, 2048, 1024, 10240, 10240)
 	utest.IsNilNow(t, err)
 
-	server, err := DialServer(lsn2.Addr().String(), TestPool, 123, "123", 3*time.Second, 2048, 1024, 10240, 10240)
+	server, err := DialServer("tcp", lsn2.Addr().String(), TestPool, 123, "123", 3*time.Second, 2048, 1024, 10240, 10240)
 	utest.IsNilNow(t, err)
 
 	// make sure connection registered
@@ -131,10 +131,10 @@ func Test_GatewayParallel(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	client, err := DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 10240, 10240)
+	client, err := DialClient("tcp", lsn1.Addr().String(), TestPool, 2048, 1024, 10240, 10240)
 	utest.IsNilNow(t, err)
 
-	server, err := DialServer(lsn2.Addr().String(), TestPool, 123, "123", 3*time.Second, 2048, 1024, 10240, 10240)
+	server, err := DialServer("tcp", lsn2.Addr().String(), TestPool, 123, "123", 3*time.Second, 2048, 1024, 10240, 10240)
 	utest.IsNilNow(t, err)
 
 	// make sure connection registered
@@ -277,28 +277,28 @@ func Test_BadEndpoint(t *testing.T) {
 	go gw.ServeServers(lsn2, "123", 3*time.Second, 1024, 1024, time.Second)
 
 	// bad remote ID
-	client, err := DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 10240, 10240)
+	client, err := DialClient("tcp", lsn1.Addr().String(), TestPool, 2048, 1024, 10240, 10240)
 	utest.IsNilNow(t, err)
 	_, _, err = client.Dial(12345)
 	utest.NotNilNow(t, err)
 	utest.EqualNow(t, err, ErrRefused)
 
 	// bad address
-	_, err = DialClient("127.0.0.1:0", TestPool, 2048, 1024, 10240, 10240)
+	_, err = DialClient("tcp", "127.0.0.1:0", TestPool, 2048, 1024, 10240, 10240)
 	utest.NotNilNow(t, err)
-	_, err = DialServer("127.0.0.1:0", TestPool, 123, "bad key", 3*time.Second, 2048, 1024, 10240, 10240)
+	_, err = DialServer("tcp", "127.0.0.1:0", TestPool, 123, "bad key", 3*time.Second, 2048, 1024, 10240, 10240)
 	utest.NotNilNow(t, err)
 
 	// gateway ping
 	conn, err := net.Dial("tcp", lsn1.Addr().String())
 	utest.IsNilNow(t, err)
 	defer conn.Close()
-	_, err = DialClient(lsn1.Addr().String(), TestPool, 2048, 1024, 10240, 10240)
+	_, err = DialClient("tcp", lsn1.Addr().String(), TestPool, 2048, 1024, 10240, 10240)
 	utest.IsNilNow(t, err)
 	time.Sleep(time.Second * 4)
 
 	// bad key
-	server, _ := DialServer(lsn2.Addr().String(), TestPool, 123, "bad key", 1*time.Second, 2048, 1024, 10240, 10240)
+	server, _ := DialServer("tcp", lsn2.Addr().String(), TestPool, 123, "bad key", 1*time.Second, 2048, 1024, 10240, 10240)
 	utest.NotNilNow(t, server)
 	var x = []byte{0, 0, 0}
 	_, err = server.session.Codec().(*codec).conn.Read(x)
@@ -314,6 +314,6 @@ func Test_BadEndpoint(t *testing.T) {
 			conn.Close()
 		}
 	}()
-	_, err = DialServer(lsn3.Addr().String(), TestPool, 123, "bad key", 1*time.Second, 2048, 1024, 10240, 10240)
+	_, err = DialServer("tcp", lsn3.Addr().String(), TestPool, 123, "bad key", 1*time.Second, 2048, 1024, 10240, 10240)
 	utest.NotNilNow(t, err)
 }

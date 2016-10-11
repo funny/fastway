@@ -23,8 +23,8 @@ var ErrRefused = errors.New("virtual connection refused")
 // bufferSize settings bufio.Reader memory usage.
 // sendChanSize settings async sending behavior for physical connection.
 // recvChanSize settings async receiving behavior for virtual connection.
-func DialClient(addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
-	conn, err := net.Dial("tcp", addr)
+func DialClient(network, addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
+	conn, err := net.Dial(network, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -41,8 +41,8 @@ func DialClient(addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChan
 // bufferSize settings bufio.Reader memory usage.
 // sendChanSize settings async sending behavior for physical connection.
 // recvChanSize settings async receiving behavior for virtual connection.
-func DialServer(addr string, pool slab.Pool, serverID uint32, key string, authTimeout time.Duration, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
-	conn, err := net.Dial("tcp", addr)
+func DialServer(network, addr string, pool slab.Pool, serverID uint32, key string, authTimeout time.Duration, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
+	conn, err := net.Dial(network, addr)
 	if err != nil {
 		return nil, err
 	}
