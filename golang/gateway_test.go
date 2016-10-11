@@ -9,8 +9,25 @@ import (
 	"time"
 
 	"github.com/funny/link"
+	"github.com/funny/slab"
 	"github.com/funny/utest"
 )
+
+func DialClient(addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	return NewClient(conn, pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize)
+}
+
+func DialServer(addr string, pool slab.Pool, serverID uint32, key string, authTimeout time.Duration, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	return NewServer(conn, pool, serverID, key, authTimeout, maxPacketSize, bufferSize, sendChanSize, recvChanSize)
+}
 
 func Test_Gateway(t *testing.T) {
 	lsn1, err := net.Listen("tcp", "127.0.0.1:0")

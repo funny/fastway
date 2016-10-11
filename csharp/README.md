@@ -5,12 +5,6 @@
 
 相关的调用API均设计成非阻塞调用，可以直接在Unity3D的Update循环里调用。
 
-当虚拟连接或底层物理连接已关闭，`Conn.Send()`将返回`false`。
-
-当虚拟连接或底层物理连接已关闭，`Conn.Receive()`将返回`null`。
-
-当消息队列中没有可用消息，`Conn.Receive()`将返回长`Conn.NoMsg`。
-
 调用示例
 =======
 
@@ -56,3 +50,10 @@ if (msg2 == Conn.NoMsg) {
 	Console.WriteLine ("no message");
 }
 ```
+
+注意事项：
+
++ 当虚拟连接或底层物理连接已关闭，`Conn.Send()`将返回`false`。
++ 当虚拟连接或底层物理连接已关闭，`Conn.Receive()`将返回`null`。
++ 当消息队列中没有可用消息，`Conn.Receive()`将返回长`Conn.NoMsg`。
++ 网关开启[snet协议](https://github.com/funny/snet)时，客户端的网络流需要是[snet协议的流](https://github.com/funny/snet/csharp)

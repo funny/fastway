@@ -12,13 +12,11 @@
 调用示例
 =======
 
-**注意：虚拟连接所用的消息类型是`*[]byte`**
-
 调用示例1 - 以客户端身份连接到网关：
 
 ```go
-client, err := proto.DialClient(
-	GatewayAddr,   // 网关地址
+client := proto.NewClient(
+	Conn,          // 物理连接
 	MyMsgFormat,   // 消息格式
 	MyMemPool,     // 内存池
 	MaxPacketSize, // 包体积限制
@@ -32,7 +30,7 @@ client, err := proto.DialClient(
 
 ```go
 server, err := proto.DialServer(
-	GatewayAddr,   // 网关地址
+	Conn,          // 物理连接
 	MyMsgFormat,   // 消息格式
 	MyMemPool,     // 内存池
 	ServerID,      // 服务端ID
@@ -72,6 +70,11 @@ var msg MyMessage
 buf, err := conn.Receive()
 json.Unmarshal(*(buf.(*[]byte)), &msg)
 ```
+
+注意事项：
+
++ 虚拟连接所用的消息类型是`*[]byte`
++ 网关开启[snet协议](https://github.com/funny/snet)时，客户端的连接需要是[snet协议的连接](https://github.com/funny/snet/golang)
 
 通讯协议
 =======

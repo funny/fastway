@@ -16,26 +16,22 @@ import (
 // ErrRefused happens when virtual connection couldn't dial to remote endpoint.
 var ErrRefused = errors.New("virtual connection refused")
 
-// DialClient dial to gateway and return a client endpoint.
-// addr is the target gateway's client address.
+// NewClient dial to gateway and return a client endpoint.
+// conn is the physical connection.
 // pool used to pooling message buffers.
 // maxPacketSize limits max packet size.
 // bufferSize settings bufio.Reader memory usage.
 // sendChanSize settings async sending behavior for physical connection.
 // recvChanSize settings async receiving behavior for virtual connection.
-func DialClient(addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
-	conn, err := net.Dial("tcp", addr)
-	if err != nil {
-		return nil, err
-	}
+func NewClient(conn net.Conn, pool slab.Pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
 	ep := newEndpoint(pool, maxPacketSize, recvChanSize)
 	ep.session = link.NewSession(ep.newCodec(conn, bufferSize), sendChanSize)
 	go ep.loop()
 	return ep, nil
 }
 
-// DialServer dial to gateway and return a server endpoint.
-// addr is the target gateway's server address.
+// NewServer dial to gateway and return a server endpoint.
+// conn is the physical connection.
 // pool used to pooling message buffers.
 // serverID is the server ID of current server.
 // key is the auth key used in server handshake.
@@ -44,11 +40,7 @@ func DialClient(addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChan
 // bufferSize settings bufio.Reader memory usage.
 // sendChanSize settings async sending behavior for physical connection.
 // recvChanSize settings async receiving behavior for virtual connection.
-func DialServer(addr string, pool slab.Pool, serverID uint32, key string, authTimeout time.Duration, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
-	conn, err := net.Dial("tcp", addr)
-	if err != nil {
-		return nil, err
-	}
+func NewServer(conn net.Conn, pool slab.Pool, serverID uint32, key string, authTimeout time.Duration, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
 	ep := newEndpoint(pool, maxPacketSize, recvChanSize)
 	if err := ep.serverInit(conn, serverID, []byte(key), authTimeout); err != nil {
 		return nil, err
