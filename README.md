@@ -81,3 +81,10 @@ API
 + [C#版](https://github.com/fast/fastway/tree/master/csharp)
 
 通讯协议细节请进一步阅读Go调用库的文档。
+
+相关项目
+=======
+
+[link 网络层脚手架](https://github.com/funny/link)
+[slab 内存池](https://github.com/funny/slab)
+[snet 支持断线重连和加密的流协议](https://github.com/funny/snet)
