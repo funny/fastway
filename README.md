@@ -15,6 +15,7 @@
 + 提升网络故障转移的效率
 + 复用客户端网络连接
 + 使服务端主动连接客户端成为可能
++ 不修改服务端的情况下引入断线重连机制和加密机制
 
 说明
 ====
@@ -55,11 +56,16 @@
 | --- | --- | --- |
 | ReusePort | 是否开启reuseport特性 | false |
 | MaxPacketSize | 最大的消息包体积 | 512K |
-| MemPoolType | Slab内存池类型 (sync、atom或chan) | atom |
+| MemPoolType | [Slab内存池类型 (sync、atom或chan)](https://github.com/funny/slab) | atom |
 | MemPoolFactor | Slab内存池的Chunk递增指数 | 2 |
 | MemPoolMaxChunk | Slab内存池中最大的Chunk大小 | 64K |
 | MemPoolMinChunk | Slab内存池中最小的Chunk大小 | 64B |
 | MemPoolPageSize | Slab内存池的每个Slab内存大小 | 1M |
+| EnableReconn | 是否对客户端开启[snet协议](https://github.com/funny/snet/) | false |
+| EnableEncrypt | 是否开启snet加密功能 | false |
+| ReconnBufferSize | 每个物理连接对应的snet重连缓冲区大小 | 64k |
+| ReconnTimeout | snet握手超时时间 | 10秒 |
+| ReconnWaitTimeout | snet等待重连超时时间 | 60秒 |
 | ClientAddr | 网关暴露给客户端的地址 | ":0" |
 | ClientMaxConn | 每个客户端可以创建的最大虚拟连接数 | 16 |
 | ClientBufferSize | 每个客户端连接使用的 bufio.Reader 缓冲区大小 | 2K |

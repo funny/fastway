@@ -10,6 +10,7 @@ import (
 	fastway "github.com/funny/fastway/golang"
 	"github.com/funny/reuseport"
 	"github.com/funny/slab"
+	snet "github.com/funny/snet/golang"
 )
 
 var (
@@ -20,6 +21,12 @@ var (
 	memPoolMinChunk = flag.Int("MemPoolMinChunk", 64, "Smallest chunk size in memory pool.")
 	memPoolMaxChunk = flag.Int("MemPoolMaxChunk", 64*1024, "Largest chunk size in memory pool.")
 	memPoolPageSize = flag.Int("MemPoolPageSize", 1024*1024, "Size of each slab in memory pool.")
+
+	enableReconn      = flag.Bool("EnableReconn", false, "Enable/Disable snet protocol. See: https://github.com/funny/snet")
+	enableEncrypt     = flag.Bool("EnableEncrypt", false, "Enable/Disable snet encrypt feature.")
+	reconnBufferSize  = flag.Int("ReconnBufferSize", 64*1024, "Snet rewriter buffer size.")
+	reconnTimeout     = flag.Duration("ReconnTimeout", 10*time.Second, "Snet handshake timeout.")
+	reconnWaitTimeout = flag.Duration("ReconnWaitTimeout", 60*time.Second, "Snet waitting reconnection timeout.")
 
 	clientAddr         = flag.String("ClientAddr", ":0", "The gateway address where clients connect to.")
 	clientMaxConn      = flag.Int("ClientMaxConn", 16, "Limit max virtual connections for each client.")
@@ -54,16 +61,26 @@ func main() {
 		println(`unsupported memory pool type, must be "sync", "atom" or "chan"`)
 	}
 
+	var snetCfg *snet.Config
+	if *enableReconn {
+		snetCfg = &snet.Config{
+			EnableCrypt:        *enableEncrypt,
+			RewriterBufferSize: *reconnBufferSize,
+			HandshakeTimeout:   *reconnTimeout,
+			ReconnWaitTimeout:  *reconnWaitTimeout,
+		}
+	}
+
 	gw := fastway.NewGateway(pool, *maxPacketSize)
 
-	go gw.ServeClients(listen("client", *clientAddr, *reusePort),
+	go gw.ServeClients(listen("client", *clientAddr, *reusePort, snetCfg),
 		*clientMaxConn,
 		*clientBufferSize,
 		*clientSendChanSize,
 		*clientPingInterval,
 	)
 
-	go gw.ServeServers(listen("server", *serverAddr, *reusePort),
+	go gw.ServeServers(listen("server", *serverAddr, *reusePort, nil),
 		*serverAuthKey,
 		*serverAuthTimeout,
 		*serverBufferSize,
@@ -76,7 +93,7 @@ func main() {
 	gw.Stop()
 }
 
-func listen(who, addr string, reuse bool) net.Listener {
+func listen(who, addr string, reuse bool, snetCfg *snet.Config) net.Listener {
 	var lsn net.Listener
 	var err error
 
@@ -88,6 +105,12 @@ func listen(who, addr string, reuse bool) net.Listener {
 
 	if err != nil {
 		log.Fatalf("setup %s listener at %s failed - %s", who, addr, err)
+	}
+
+	if snetCfg != nil {
+		lsn, _ = snet.Listen(*snetCfg, func() (net.Listener, error) {
+			return lsn, nil
+		})
 	}
 
 	log.Printf("setup %s listener at - %s", who, lsn.Addr())
