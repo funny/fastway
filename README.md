@@ -85,6 +85,13 @@ API
 相关项目
 =======
 
-[link 网络层脚手架](https://github.com/funny/link)
-[slab 内存池](https://github.com/funny/slab)
-[snet 支持断线重连和加密的流协议](https://github.com/funny/snet)
+* [通讯协议代码生成](https://github.com/funny/fastbin)
+* [slab算法的内存池](https://github.com/funny/slab)
+* [支持断线重连和加密的流协议](https://github.com/funny/snet)
+
+参与项目
+=======
+
+欢迎提交通过github的issues功能提交反馈或提问。
+
+技术群：474995422
