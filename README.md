@@ -50,33 +50,44 @@
 
 本网关提供了一个命令行程序用来对外提供服务。
 
-命令行支持以下参数：
+命令行公共参数：
 
 | 参数名 | 说明 | 默认值 |
 | --- | --- | --- |
 | ReusePort | 是否开启reuseport特性 | false |
 | MaxPacketSize | 最大的消息包体积 | 512K |
-| MemPoolType | [Slab内存池类型 (sync、atom或chan)](https://github.com/funny/slab) | atom |
-| MemPoolFactor | Slab内存池的Chunk递增指数 | 2 |
-| MemPoolMaxChunk | Slab内存池中最大的Chunk大小 | 64K |
-| MemPoolMinChunk | Slab内存池中最小的Chunk大小 | 64B |
-| MemPoolPageSize | Slab内存池的每个Slab内存大小 | 1M |
-| EnableReconn | 是否对客户端开启[snet协议](https://github.com/funny/snet/) | false |
-| EnableEncrypt | 是否开启snet加密功能 | false |
-| ReconnBufferSize | 每个物理连接对应的snet重连缓冲区大小 | 64k |
-| ReconnTimeout | snet握手超时时间 | 10秒 |
-| ReconnWaitTimeout | snet等待重连超时时间 | 60秒 |
+| MemPoolType | [slab内存池类型 (sync、atom或chan)](https://github.com/funny/slab) | atom |
+| MemPoolFactor | slab内存池的Chunk递增指数 | 2 |
+| MemPoolMaxChunk | slab内存池中最大的Chunk大小 | 64K |
+| MemPoolMinChunk | slab内存池中最小的Chunk大小 | 64B |
+| MemPoolPageSize | slab内存池的每个Slab内存大小 | 1M |
+
+客户端相关参数：
+
 | ClientAddr | 网关暴露给客户端的地址 | ":0" |
 | ClientMaxConn | 每个客户端可以创建的最大虚拟连接数 | 16 |
 | ClientBufferSize | 每个客户端连接使用的 bufio.Reader 缓冲区大小 | 2K |
 | ClientPingInterval | 网关在多少秒没收到客户端消息后发送PING指令给客户端 | 30秒 |
 | ClientSendChanSize | 每个客户端连接异步发送消息用的chan缓冲区大小 | 1000 |
+| ClientSnetEnable | [是否为客户端开启snet协议](https://github.com/funny/snet) | false |
+| ClientSnetEncrypt | 是否为客户端开启snet加密 | false |
+| ClientSnetBuffer | 每个客户端物理连接对应的snet重连缓冲区大小 | 32k |
+| ClientSnetInitTimeout | 客户端snet握手超时时间 | 10秒 |
+| ClientSnetWaitTimeout | 客户端snet等待重连超时时间 | 60秒 |
+
+服务端相关参数：
+
 | ServerAddr | 网关暴露给服务端的地址 | ":0" |
 | ServerAuthPassword | 用于验证服务端合法性的秘钥 | 空 |
 | ServerAuthTimeout | 验证服务端连接时的最大IO等待时间 | 3秒 |
 | ServerBufferSize | 每个服务端连接使用的 bufio.Reader 缓冲区大小 | 64K |
 | ServerPingInterval | 网关在多少秒没收到客户端消息后发送PING指令给客户端 | 30秒 |
 | ServerSendChanSize | 每个服务端连接异步发送消息用的chan缓冲区大小 | 10万 |
+| ServerSnetEnable | [是否为服务端开启snet协议](https://github.com/funny/snet) | false |
+| ServerSnetEncrypt | 是否为服务端开启snet加密 | false |
+| ServerSnetBuffer | 每个服务端物理连接对应的snet重连缓冲区大小 | 1M |
+| ServerSnetInitTimeout | 服务端snet握手超时时间 | 10秒 |
+| ServerSnetWaitTimeout | 服务端snet等待重连超时时间 | 60秒 |
 
 API
 ===

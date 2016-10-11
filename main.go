@@ -22,24 +22,28 @@ var (
 	memPoolMaxChunk = flag.Int("MemPoolMaxChunk", 64*1024, "Largest chunk size in memory pool.")
 	memPoolPageSize = flag.Int("MemPoolPageSize", 1024*1024, "Size of each slab in memory pool.")
 
-	enableReconn      = flag.Bool("EnableReconn", false, "Enable/Disable snet protocol. See: https://github.com/funny/snet")
-	enableEncrypt     = flag.Bool("EnableEncrypt", false, "Enable/Disable snet encrypt feature.")
-	reconnBufferSize  = flag.Int("ReconnBufferSize", 64*1024, "Snet rewriter buffer size.")
-	reconnTimeout     = flag.Duration("ReconnTimeout", 10*time.Second, "Snet handshake timeout.")
-	reconnWaitTimeout = flag.Duration("ReconnWaitTimeout", 60*time.Second, "Snet waitting reconnection timeout.")
+	clientAddr            = flag.String("ClientAddr", ":0", "The gateway address where clients connect to.")
+	clientMaxConn         = flag.Int("ClientMaxConn", 16, "Limit max virtual connections for each client.")
+	clientBufferSize      = flag.Int("ClientBufferSize", 2*1024, "Setting bufio.Reader's buffer size.")
+	clientSendChanSize    = flag.Int("ClientSendChanSize", 1024, "Tunning client session's async behavior.")
+	clientPingInterval    = flag.Duration("ClientPingInterval", 30*time.Second, "The interval of that gateway sending PING command to client.")
+	clientSnetEnable      = flag.Bool("ClientSnetEnable", false, "Enable/Disable snet protocol for clients.")
+	clientSnetEncrypt     = flag.Bool("ClientSnetEncrypt", false, "Enable/Disable client snet protocol encrypt feature.")
+	clientSnetBuffer      = flag.Int("ClientSnetBuffer", 64*1024, "Client snet protocol rewriter buffer size.")
+	clientSnetInitTimeout = flag.Duration("ClientSnetInitTimeout", 10*time.Second, "Client snet protocol handshake timeout.")
+	clientSnetWaitTimeout = flag.Duration("ClientSnetWaitTimeout", 60*time.Second, "Client snet protocol waitting reconnection timeout.")
 
-	clientAddr         = flag.String("ClientAddr", ":0", "The gateway address where clients connect to.")
-	clientMaxConn      = flag.Int("ClientMaxConn", 16, "Limit max virtual connections for each client.")
-	clientBufferSize   = flag.Int("ClientBufferSize", 2*1024, "Setting bufio.Reader's buffer size.")
-	clientSendChanSize = flag.Int("ClientSendChanSize", 1024, "Tunning client session's async behavior.")
-	clientPingInterval = flag.Duration("ClientPingInterval", 30*time.Second, "The interval of that gateway sending PING command to client.")
-
-	serverAddr         = flag.String("ServerAddr", ":0", "The gateway address where servers connect to.")
-	serverAuthTimeout  = flag.Duration("ServerAuthTimeout", 3*time.Second, "Server auth IO waiting timeout.")
-	serverAuthKey      = flag.String("ServerAuthKey", "", "The private key used to auth server connection.")
-	serverBufferSize   = flag.Int("ServerBufferSize", 64*1024, "Buffer size of bufio.Reader for server connections.")
-	serverSendChanSize = flag.Int("ServerSendChanSize", 102400, "Tunning server session's async behavior, this value must be greater than zero.")
-	serverPingInterval = flag.Duration("ServerPingInterval", 30*time.Second, "The interval of that gateway sending PING command to server.")
+	serverAddr            = flag.String("ServerAddr", ":0", "The gateway address where servers connect to.")
+	serverAuthTimeout     = flag.Duration("ServerAuthTimeout", 3*time.Second, "Server auth IO waiting timeout.")
+	serverAuthKey         = flag.String("ServerAuthKey", "", "The private key used to auth server connection.")
+	serverBufferSize      = flag.Int("ServerBufferSize", 64*1024, "Buffer size of bufio.Reader for server connections.")
+	serverSendChanSize    = flag.Int("ServerSendChanSize", 102400, "Tunning server session's async behavior, this value must be greater than zero.")
+	serverPingInterval    = flag.Duration("ServerPingInterval", 30*time.Second, "The interval of that gateway sending PING command to server.")
+	serverSnetEnable      = flag.Bool("ServerSnetEnable", false, "Enable/Disable snet protocol for server.")
+	serverSnetEncrypt     = flag.Bool("ServerSnetEncrypt", false, "Enable/Disable server snet protocol encrypt feature.")
+	serverSnetBuffer      = flag.Int("ServerSnetBuffer", 64*1024, "Server snet protocol rewriter buffer size.")
+	serverSnetInitTimeout = flag.Duration("ServerSnetInitTimeout", 10*time.Second, "Server snet protocol handshake timeout.")
+	serverSnetWaitTimeout = flag.Duration("ServerSnetWaitTimeout", 60*time.Second, "Server snet protocol waitting reconnection timeout.")
 )
 
 func main() {
@@ -61,26 +65,30 @@ func main() {
 		println(`unsupported memory pool type, must be "sync", "atom" or "chan"`)
 	}
 
-	var snetCfg *snet.Config
-	if *enableReconn {
-		snetCfg = &snet.Config{
-			EnableCrypt:        *enableEncrypt,
-			RewriterBufferSize: *reconnBufferSize,
-			HandshakeTimeout:   *reconnTimeout,
-			ReconnWaitTimeout:  *reconnWaitTimeout,
-		}
-	}
-
 	gw := fastway.NewGateway(pool, *maxPacketSize)
 
-	go gw.ServeClients(listen("client", *clientAddr, *reusePort, snetCfg),
+	go gw.ServeClients(
+		listen("client", *clientAddr, *reusePort,
+			*clientSnetEnable,
+			*clientSnetEncrypt,
+			*clientSnetBuffer,
+			*clientSnetInitTimeout,
+			*clientSnetWaitTimeout,
+		),
 		*clientMaxConn,
 		*clientBufferSize,
 		*clientSendChanSize,
 		*clientPingInterval,
 	)
 
-	go gw.ServeServers(listen("server", *serverAddr, *reusePort, nil),
+	go gw.ServeServers(
+		listen("server", *serverAddr, *reusePort,
+			*serverSnetEnable,
+			*serverSnetEncrypt,
+			*serverSnetBuffer,
+			*serverSnetInitTimeout,
+			*serverSnetWaitTimeout,
+		),
 		*serverAuthKey,
 		*serverAuthTimeout,
 		*serverBufferSize,
@@ -93,7 +101,7 @@ func main() {
 	gw.Stop()
 }
 
-func listen(who, addr string, reuse bool, snetCfg *snet.Config) net.Listener {
+func listen(who, addr string, reuse, snetEnable, snetEncrypt bool, snetBuffer int, snetInitTimeout, snetWaitTimeout time.Duration) net.Listener {
 	var lsn net.Listener
 	var err error
 
@@ -107,8 +115,13 @@ func listen(who, addr string, reuse bool, snetCfg *snet.Config) net.Listener {
 		log.Fatalf("setup %s listener at %s failed - %s", who, addr, err)
 	}
 
-	if snetCfg != nil {
-		lsn, _ = snet.Listen(*snetCfg, func() (net.Listener, error) {
+	if snetEnable {
+		lsn, _ = snet.Listen(snet.Config{
+			EnableCrypt:        snetEncrypt,
+			RewriterBufferSize: snetBuffer,
+			HandshakeTimeout:   snetInitTimeout,
+			ReconnWaitTimeout:  snetWaitTimeout,
+		}, func() (net.Listener, error) {
 			return lsn, nil
 		})
 	}
