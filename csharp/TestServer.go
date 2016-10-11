@@ -26,7 +26,7 @@ func main() {
 	go gateway.ServeServers(lsn2, "test key", time.Second*3, 1024, 10000, time.Second)
 
 	server, err := fastway.DialServer(
-		lsn2.Addr().String(), pool,
+		"tcp", lsn2.Addr().String(), pool,
 		10086, "test key", time.Second*3,
 		512*1024, 1024, 10000, 10000,
 	)
