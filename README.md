@@ -64,6 +64,8 @@
 
 客户端相关参数：
 
+| 参数名 | 说明 | 默认值 |
+| --- | --- | --- |
 | ClientAddr | 网关暴露给客户端的地址 | ":0" |
 | ClientMaxConn | 每个客户端可以创建的最大虚拟连接数 | 16 |
 | ClientBufferSize | 每个客户端连接使用的 bufio.Reader 缓冲区大小 | 2K |
@@ -77,6 +79,8 @@
 
 服务端相关参数：
 
+| 参数名 | 说明 | 默认值 |
+| --- | --- | --- |
 | ServerAddr | 网关暴露给服务端的地址 | ":0" |
 | ServerAuthPassword | 用于验证服务端合法性的秘钥 | 空 |
 | ServerAuthTimeout | 验证服务端连接时的最大IO等待时间 | 3秒 |
