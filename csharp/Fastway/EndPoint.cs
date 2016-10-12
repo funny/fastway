@@ -69,8 +69,6 @@ namespace Fastway
 				this.p.Close (this.id, this);
 			}
 		}
-
-		public 
 	}
 
 	public class EndPoint
