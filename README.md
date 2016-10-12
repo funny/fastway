@@ -48,9 +48,9 @@
 网关
 ====
 
-本网关提供了一个命令行程序用来对外提供服务。
+本网关提供了一个命令行程序用来对外提供服务，命令行支持以下参数：
 
-命令行公共参数：
+网关相关参数：
 
 | 参数名 | 说明 | 默认值 |
 | --- | --- | --- |
@@ -92,7 +92,39 @@
 | ServerSnetInitTimeout | 服务端snet握手超时时间 | 10秒 |
 | ServerSnetWaitTimeout | 服务端snet等待重连超时时间 | 60秒 |
 
-当网关开启snet重连协议时，
+命令行程序启动时会自动把当前进程ID记录到`fastway.pid`，并且监听`SIGTERM`和`SIGINT`。
+
+当网关以前台模式运行时，可以用`Ctrl + C`安全关闭网关进程。
+
+网关可以使用`docker`、`nohup`、`start-stop-daemon`来做后台运行。
+
+当网关以后台模式运行时，可以使用以下命令安全关闭网关进程：
+
+```
+kill `cat fastway.pid`
+```
+
+网关的日志输出可以使用`logrotate`做自动分卷。
+
+此外，还可以对网关进程发送指令来获取网关的运行状态或者开启和关闭[`profiling`](https://blog.golang.org/profiling-go-programs)
+
+以开始`cpuprof`为例，可以通过以下方式向网关发送指令：
+
+```
+echo "cpuprof start" > fastway.cmd && kill `cat fastway.pid`
+```
+
+网关支持的完整指令：
+
+| 指令 | 说明 |
+| --- | --- |
+| cpuprof start | 开始cpuprof |
+| cpuprof stop | 停止cpuprof并保存信息到 fastway.cpu.prof，可用`go tool pprof`分析|
+| lookup block | 堆栈跟踪的方式查看导致阻塞的地方，保存到 fastway.block.prof |
+| lookup gc | 以日志的形式输出gc汇总信息 |
+| lookup goroutine | 获取当前所有goroutine的调用栈信息到 fastway.goroutine.prof |
+| lookup heap | 获取堆内存分配信息到 fastway.heap.prof，可用`go tool pprof`分析 |
+| lookup threadcreate | 堆栈跟踪的方式查看哪些地方在创建操作系统线程，保存到 fastway.threadcreate.prof |
 
 API
 ===
