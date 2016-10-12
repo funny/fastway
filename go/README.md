@@ -23,6 +23,7 @@ client := proto.NewClient(
 	BufferSize,    // 预读所用的缓冲区大小
 	SendChanSize,  // 物理连接异步发送用的chan缓冲区大小
 	RecvChanSize,  // 虚拟连接异步接收用的chan缓冲区大小
+	PingInterval,  // 发送Ping的时间间隔，必须小于网关的ClientIdleTimeout
 )
 ```
 
@@ -40,6 +41,7 @@ server, err := proto.DialServer(
 	BufferSize,    // 预读所用的缓冲区大小
 	SendChanSize,  // 物理连接异步发送用的chan缓冲区大小
 	RecvChanSize,  // 虚拟连接异步接收用的chan缓冲区大小
+	PingInterval,  // 发送Ping的时间间隔，必须小于网关的ServerIdleTimeout
 )
 ```
 
@@ -74,6 +76,4 @@ json.Unmarshal(*(buf.(*[]byte)), &msg)
 注意事项：
 
 + 虚拟连接所用的消息类型是`*[]byte`
-+ `Endpoint`需要主动调用`Ping()`来保活，如果网关超过`ClientIdleTimeout`和`ServerIdleTimeout`设置的时间没有收到连接的消息将会关闭连接
-+ `Endpoint`可以检查`LastActive()`返回的最后活跃时间来减少不必要的`Ping()`调用
 + 网关开启[snet协议](https://github.com/funny/snet)时，需要用[snet协议的连接](https://github.com/funny/snet/golang)来创建Endpoint

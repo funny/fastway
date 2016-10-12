@@ -28,20 +28,12 @@ func main() {
 	server, err := fastway.DialServer(
 		"tcp", lsn2.Addr().String(), pool,
 		10086, "test key", time.Second*3,
-		512*1024, 1024, 10000, 10000,
+		512*1024, 1024, 10000, 10000, time.Second,
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer server.Close()
-
-	go func() {
-		for _ = range time.Tick(time.Second) {
-			if err := server.Ping(); err != nil {
-				log.Fatal(err)
-			}
-		}
-	}()
 
 	for {
 		conn, connID, remoteID, err := server.Accept()

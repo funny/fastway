@@ -11,11 +11,11 @@ namespace FastwayTest
 		{
 			var tcpClient = new TcpClient ("127.0.0.1", 10010);
 			var netStream = tcpClient.GetStream ();
-			var endPoint = new EndPoint (netStream);
+			var endPoint = new EndPoint (netStream, 1000);
 			var conn = endPoint.Dial (10086);
 			var random = new Random ();
 
-			//Thread.Sleep (1000 * 5);
+			Thread.Sleep (1000 * 5);
 
 			for (var i = 0; i < 100000; i++) {
 				var n = random.Next (10, 2000);

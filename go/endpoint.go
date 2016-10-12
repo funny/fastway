@@ -24,12 +24,12 @@ var ErrRefused = errors.New("virtual connection refused")
 // bufferSize settings bufio.Reader memory usage.
 // sendChanSize settings async sending behavior for physical connection.
 // recvChanSize settings async receiving behavior for virtual connection.
-func DialClient(network, addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
+func DialClient(network, addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize int, pingInterval time.Duration) (*Endpoint, error) {
 	conn, err := net.Dial(network, addr)
 	if err != nil {
 		return nil, err
 	}
-	return NewClient(conn, pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize)
+	return NewClient(conn, pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize, pingInterval)
 }
 
 // DialServer dial to gateway and return a server endpoint.
@@ -42,12 +42,12 @@ func DialClient(network, addr string, pool slab.Pool, maxPacketSize, bufferSize,
 // bufferSize settings bufio.Reader memory usage.
 // sendChanSize settings async sending behavior for physical connection.
 // recvChanSize settings async receiving behavior for virtual connection.
-func DialServer(network, addr string, pool slab.Pool, serverID uint32, key string, authTimeout time.Duration, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
+func DialServer(network, addr string, pool slab.Pool, serverID uint32, key string, authTimeout time.Duration, maxPacketSize, bufferSize, sendChanSize, recvChanSize int, pingInterval time.Duration) (*Endpoint, error) {
 	conn, err := net.Dial(network, addr)
 	if err != nil {
 		return nil, err
 	}
-	return NewServer(conn, pool, serverID, key, authTimeout, maxPacketSize, bufferSize, sendChanSize, recvChanSize)
+	return NewServer(conn, pool, serverID, key, authTimeout, maxPacketSize, bufferSize, sendChanSize, recvChanSize, pingInterval)
 }
 
 // NewClient dial to gateway and return a client endpoint.
@@ -57,10 +57,11 @@ func DialServer(network, addr string, pool slab.Pool, serverID uint32, key strin
 // bufferSize settings bufio.Reader memory usage.
 // sendChanSize settings async sending behavior for physical connection.
 // recvChanSize settings async receiving behavior for virtual connection.
-func NewClient(conn net.Conn, pool slab.Pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
+func NewClient(conn net.Conn, pool slab.Pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize int, pingInterval time.Duration) (*Endpoint, error) {
 	ep := newEndpoint(pool, maxPacketSize, recvChanSize)
 	ep.session = link.NewSession(ep.newCodec(conn, bufferSize), sendChanSize)
 	go ep.loop()
+	go ep.keepalive(pingInterval)
 	return ep, nil
 }
 
@@ -74,13 +75,14 @@ func NewClient(conn net.Conn, pool slab.Pool, maxPacketSize, bufferSize, sendCha
 // bufferSize settings bufio.Reader memory usage.
 // sendChanSize settings async sending behavior for physical connection.
 // recvChanSize settings async receiving behavior for virtual connection.
-func NewServer(conn net.Conn, pool slab.Pool, serverID uint32, key string, authTimeout time.Duration, maxPacketSize, bufferSize, sendChanSize, recvChanSize int) (*Endpoint, error) {
+func NewServer(conn net.Conn, pool slab.Pool, serverID uint32, key string, authTimeout time.Duration, maxPacketSize, bufferSize, sendChanSize, recvChanSize int, pingInterval time.Duration) (*Endpoint, error) {
 	ep := newEndpoint(pool, maxPacketSize, recvChanSize)
 	if err := ep.serverInit(conn, serverID, []byte(key), authTimeout); err != nil {
 		return nil, err
 	}
 	ep.session = link.NewSession(ep.newCodec(conn, bufferSize), sendChanSize)
 	go ep.loop()
+	go ep.keepalive(pingInterval)
 	return ep, nil
 }
 
@@ -159,14 +161,21 @@ func (p *Endpoint) Close() {
 	})
 }
 
-// Ping send ping command to gateway.
-func (p *Endpoint) Ping() error {
-	return p.send(p.session, p.encodePingCmd())
-}
-
-// LastActive returns endpoint last active time.
-func (p *Endpoint) LastActive() time.Time {
-	return time.Unix(atomic.LoadInt64(&p.lastActive), 0)
+func (p *Endpoint) keepalive(pingInterval time.Duration) {
+	ticker := time.NewTicker(pingInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if time.Duration(atomic.LoadInt64(&p.lastActive)) >= pingInterval {
+				if p.send(p.session, p.encodePingCmd()) != nil {
+					return
+				}
+			}
+		case <-p.closeChan:
+			return
+		}
+	}
 }
 
 func (p *Endpoint) addVirtualConn(connID, remoteID uint32, c chan vconn) {
@@ -189,7 +198,7 @@ func (p *Endpoint) loop() {
 		}
 	}()
 	for {
-		atomic.StoreInt64(&p.lastActive, time.Now().Unix())
+		atomic.StoreInt64(&p.lastActive, time.Now().UnixNano())
 
 		msg, err := p.session.Receive()
 		if err != nil {

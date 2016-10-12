@@ -11,12 +11,12 @@
 调用示例1 - 连接到网关：
 
 ```csharp
-var endPoint = new Fastway.EndPoint (
-	new System.Net.Sockets.TcpClient (
-		GatewayIP, 
-		GatewayPort
-	).GetStream ()
-);
+var stream = new System.Net.Sockets.TcpClient (
+	GatewayIP, 
+	GatewayPort
+).GetStream ();
+
+var endPoint = new Fastway.EndPoint (stream, PingInterval);
 ```
 
 调用示例2 - 连接到服务端：
@@ -54,6 +54,4 @@ if (msg2 == Conn.NoMsg) {
 注意事项：
 
 + 当虚拟连接或底层物理连接已关闭，`Conn.Send()`将返回`false`。
-+ 当虚拟连接或底层物理连接已关闭，`Conn.Receive()`将返回`null`。
-+ 当消息队列中没有可用消息，`Conn.Receive()`将返回长`Conn.NoMsg`。
 + 网关开启[snet协议](https://github.com/funny/snet)时，客户端的网络流需要是[snet协议的流](https://github.com/funny/snet/csharp)

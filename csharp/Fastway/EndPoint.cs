@@ -81,7 +81,7 @@ namespace Fastway
 		private Dictionary<uint /* remote id */, List<Conn>> dialWait;
 		private Dictionary<uint /* conn id */, Conn> connections;
 
-		public EndPoint (Stream s)
+		public EndPoint (Stream s, double pingInterval)
 		{
 			this.s = s;
 			this.headBuf = new byte[8];
@@ -90,14 +90,7 @@ namespace Fastway
 			this.connections = new Dictionary<uint, Conn>();
 
 			this.ReadHead ();
-		}
-		
-		public DateTime LastActive {
-			get {
-				lock (this) {
-					return this.lastActive;
-				}
-			}
+			this.KeepAlive (pingInterval);
 		}
 
 		public void Close()
@@ -167,19 +160,6 @@ namespace Fastway
 			}
 		}
 
-		public void Ping()
-		{
-			byte[] buf = new byte[9];
-			using (MemoryStream ms = new MemoryStream (buf)) {
-				using (BinaryWriter bw = new BinaryWriter (ms)) {
-					bw.Write ((uint)5);
-					bw.Write ((uint)0);
-					bw.Write ((byte)5);
-				}
-			}
-			this.TrySend (buf, buf.Length);
-		}
-
 		internal void Close(uint connID, Conn conn)
 		{
 			lock (this) {
@@ -213,12 +193,11 @@ namespace Fastway
 		private void ReadHead()
 		{
 			try {
-				this.s.BeginRead (this.headBuf, 0, 8, (IAsyncResult result) => {
-					if (!result.IsCompleted) {
+				this.s.BeginRead (headBuf, 0, 8, (IAsyncResult result) => {
+					if (!result.IsCompleted || this.s.EndRead(result) != headBuf.Length) {
 						this.Close();
 						return;
 					}
-					this.s.EndRead(result);
 				
 					int length;
 					uint connID;
@@ -246,20 +225,20 @@ namespace Fastway
 			try {
 				byte[] buf = new byte[length];
 				this.s.BeginRead (buf, 0, length, (IAsyncResult result) => {
-					if (!result.IsCompleted) {
+					byte[] body = (byte[])result.AsyncState;
+
+					if (!result.IsCompleted || this.s.EndRead(result) != body.Length) {
 						this.Close();
 						return;
 					}
 
-					byte[] body = (byte[])result.AsyncState;
-					this.s.EndRead(result);
-
 					this.HandleMessage(connID, body);
-					this.ReadHead();
 				}, buf);
 			} catch {
 				this.Close();
+				return;
 			}
+			this.ReadHead();
 		}
 
 		private void HandleMessage(uint connID, byte[] body)
@@ -399,6 +378,38 @@ namespace Fastway
 			} catch {
 				this.Close();
 			}
+		}
+
+		private DateTime LastActive {
+			get {
+				lock (this) {
+					return this.lastActive;
+				}
+			}
+		}
+
+		private void Ping()
+		{
+			byte[] buf = new byte[9];
+			using (MemoryStream ms = new MemoryStream (buf)) {
+				using (BinaryWriter bw = new BinaryWriter (ms)) {
+					bw.Write ((uint)5);
+					bw.Write ((uint)0);
+					bw.Write ((byte)5);
+				}
+			}
+			this.TrySend (buf, buf.Length);
+		}
+
+		private void KeepAlive(double pingInterval)
+		{
+			System.Timers.Timer timer = new System.Timers.Timer (pingInterval);
+			timer.Elapsed += (object sender, System.Timers.ElapsedEventArgs e) => {
+				if (DateTime.Now.Subtract(LastActive).TotalMilliseconds >= pingInterval) {
+					Ping();
+				}
+			};
+			timer.Start ();
 		}
 	}
 }
