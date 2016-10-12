@@ -15,7 +15,7 @@ import (
 
 var (
 	reusePort       = flag.Bool("ReusePort", false, "Enable/Disable the reuseport feature.")
-	maxPacketSize   = flag.Int("MaxPacketSize", 512*1024, "Limit max packet size.")
+	maxPacket       = flag.Int("MaxPacket", 512*1024, "Limit max packet size.")
 	memPoolType     = flag.String("MemPoolType", "atom", "Type of memory pool ('sync', 'atom' or 'chan').")
 	memPoolFactor   = flag.Int("MemPoolFactor", 2, "Growth in chunk size in memory pool.")
 	memPoolMinChunk = flag.Int("MemPoolMinChunk", 64, "Smallest chunk size in memory pool.")
@@ -34,7 +34,6 @@ var (
 	clientSnetWaitTimeout = flag.Duration("ClientSnetWaitTimeout", 60*time.Second, "Client snet protocol waitting reconnection timeout.")
 
 	serverAddr            = flag.String("ServerAddr", ":0", "The gateway address where servers connect to.")
-	serverAuthTimeout     = flag.Duration("ServerAuthTimeout", 3*time.Second, "Server auth IO waiting timeout.")
 	serverAuthKey         = flag.String("ServerAuthKey", "", "The private key used to auth server connection.")
 	serverBufferSize      = flag.Int("ServerBufferSize", 64*1024, "Buffer size of bufio.Reader for server connections.")
 	serverSendChanSize    = flag.Int("ServerSendChanSize", 102400, "Tunning server session's async behavior, this value must be greater than zero.")
@@ -65,7 +64,7 @@ func main() {
 		println(`unsupported memory pool type, must be "sync", "atom" or "chan"`)
 	}
 
-	gw := fastway.NewGateway(pool, *maxPacketSize)
+	gw := fastway.NewGateway(pool, *maxPacket)
 
 	go gw.ServeClients(
 		listen("client", *clientAddr, *reusePort,
@@ -75,10 +74,12 @@ func main() {
 			*clientSnetInitTimeout,
 			*clientSnetWaitTimeout,
 		),
-		*clientMaxConn,
-		*clientBufferSize,
-		*clientSendChanSize,
-		*clientIdleTimeout,
+		fastway.GatewayCfg{
+			MaxConn:      *clientMaxConn,
+			BufferSize:   *clientBufferSize,
+			SendChanSize: *clientSendChanSize,
+			IdleTimeout:  *clientIdleTimeout,
+		},
 	)
 
 	go gw.ServeServers(
@@ -89,11 +90,12 @@ func main() {
 			*serverSnetInitTimeout,
 			*serverSnetWaitTimeout,
 		),
-		*serverAuthKey,
-		*serverAuthTimeout,
-		*serverBufferSize,
-		*serverSendChanSize,
-		*serverIdleTimeout,
+		fastway.GatewayCfg{
+			AuthKey:      *serverAuthKey,
+			BufferSize:   *serverBufferSize,
+			SendChanSize: *serverSendChanSize,
+			IdleTimeout:  *serverIdleTimeout,
+		},
 	)
 
 	cmd.Shell("fastway")

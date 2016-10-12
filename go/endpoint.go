@@ -14,75 +14,65 @@ import (
 	"github.com/funny/slab"
 )
 
-// ErrRefused happens when virtual connection couldn't dial to remote endpoint.
+var EndPointTimer = newTimingWheel(time.Second, 1800)
+
+// ErrRefused happens when virtual connection couldn't dial to remote EndPoint.
 var ErrRefused = errors.New("virtual connection refused")
 
-// DialClient dial to gateway and return a client endpoint.
+// EndPointCfg used to config EndPoint.
+type EndPointCfg struct {
+	MemPool         slab.Pool
+	MaxPacket       int
+	BufferSize      int
+	SendChanSize    int
+	RecvChanSize    int
+	PingInterval    time.Duration
+	PingTimeout     time.Duration
+	TimeoutCallback func()
+	ServerID        uint32
+	AuthKey         string
+}
+
+// DialClient dial to gateway and return a client EndPoint.
 // addr is the gateway address.
-// pool used to pooling message buffers.
-// maxPacketSize limits max packet size.
-// bufferSize settings bufio.Reader memory usage.
-// sendChanSize settings async sending behavior for physical connection.
-// recvChanSize settings async receiving behavior for virtual connection.
-func DialClient(network, addr string, pool slab.Pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize int, pingInterval time.Duration) (*Endpoint, error) {
+func DialClient(network, addr string, cfg EndPointCfg) (*EndPoint, error) {
 	conn, err := net.Dial(network, addr)
 	if err != nil {
 		return nil, err
 	}
-	return NewClient(conn, pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize, pingInterval)
+	return NewClient(conn, cfg)
 }
 
-// DialServer dial to gateway and return a server endpoint.
+// DialServer dial to gateway and return a server EndPoint.
 // addr is the gateway address.
-// pool used to pooling message buffers.
-// serverID is the server ID of current server.
-// key is the auth key used in server handshake.
-// authTimeout is the IO waiting timeout when server handshake.
-// maxPacketSize limits max packet size.
-// bufferSize settings bufio.Reader memory usage.
-// sendChanSize settings async sending behavior for physical connection.
-// recvChanSize settings async receiving behavior for virtual connection.
-func DialServer(network, addr string, pool slab.Pool, serverID uint32, key string, authTimeout time.Duration, maxPacketSize, bufferSize, sendChanSize, recvChanSize int, pingInterval time.Duration) (*Endpoint, error) {
+func DialServer(network, addr string, cfg EndPointCfg) (*EndPoint, error) {
 	conn, err := net.Dial(network, addr)
 	if err != nil {
 		return nil, err
 	}
-	return NewServer(conn, pool, serverID, key, authTimeout, maxPacketSize, bufferSize, sendChanSize, recvChanSize, pingInterval)
+	return NewServer(conn, cfg)
 }
 
-// NewClient dial to gateway and return a client endpoint.
+// NewClient dial to gateway and return a client EndPoint.
 // conn is the physical connection.
-// pool used to pooling message buffers.
-// maxPacketSize limits max packet size.
-// bufferSize settings bufio.Reader memory usage.
-// sendChanSize settings async sending behavior for physical connection.
-// recvChanSize settings async receiving behavior for virtual connection.
-func NewClient(conn net.Conn, pool slab.Pool, maxPacketSize, bufferSize, sendChanSize, recvChanSize int, pingInterval time.Duration) (*Endpoint, error) {
-	ep := newEndpoint(pool, maxPacketSize, recvChanSize)
-	ep.session = link.NewSession(ep.newCodec(conn, bufferSize), sendChanSize)
+func NewClient(conn net.Conn, cfg EndPointCfg) (*EndPoint, error) {
+	ep := newEndPoint(cfg.MemPool, cfg.MaxPacket, cfg.RecvChanSize)
+	ep.session = link.NewSession(ep.newCodec(conn, cfg.BufferSize), cfg.SendChanSize)
 	go ep.loop()
-	go ep.keepalive(pingInterval)
+	go ep.keepalive(cfg.PingInterval, cfg.PingTimeout, cfg.TimeoutCallback)
 	return ep, nil
 }
 
-// NewServer dial to gateway and return a server endpoint.
+// NewServer dial to gateway and return a server EndPoint.
 // conn is the physical connection.
-// pool used to pooling message buffers.
-// serverID is the server ID of current server.
-// key is the auth key used in server handshake.
-// authTimeout is the IO waiting timeout when server handshake.
-// maxPacketSize limits max packet size.
-// bufferSize settings bufio.Reader memory usage.
-// sendChanSize settings async sending behavior for physical connection.
-// recvChanSize settings async receiving behavior for virtual connection.
-func NewServer(conn net.Conn, pool slab.Pool, serverID uint32, key string, authTimeout time.Duration, maxPacketSize, bufferSize, sendChanSize, recvChanSize int, pingInterval time.Duration) (*Endpoint, error) {
-	ep := newEndpoint(pool, maxPacketSize, recvChanSize)
-	if err := ep.serverInit(conn, serverID, []byte(key), authTimeout); err != nil {
+func NewServer(conn net.Conn, cfg EndPointCfg) (*EndPoint, error) {
+	ep := newEndPoint(cfg.MemPool, cfg.MaxPacket, cfg.RecvChanSize)
+	if err := ep.serverInit(conn, cfg.ServerID, []byte(cfg.AuthKey)); err != nil {
 		return nil, err
 	}
-	ep.session = link.NewSession(ep.newCodec(conn, bufferSize), sendChanSize)
+	ep.session = link.NewSession(ep.newCodec(conn, cfg.BufferSize), cfg.SendChanSize)
 	go ep.loop()
-	go ep.keepalive(pingInterval)
+	go ep.keepalive(cfg.PingInterval, cfg.PingTimeout, cfg.TimeoutCallback)
 	return ep, nil
 }
 
@@ -92,8 +82,8 @@ type vconn struct {
 	RemoteID uint32
 }
 
-// Endpoint is can be a client or a server.
-type Endpoint struct {
+// EndPoint is can be a client or a server.
+type EndPoint struct {
 	protocol
 	recvChanSize int
 	session      *link.Session
@@ -108,8 +98,8 @@ type Endpoint struct {
 	closeOnce    sync.Once
 }
 
-func newEndpoint(pool slab.Pool, maxPacketSize, recvChanSize int) *Endpoint {
-	return &Endpoint{
+func newEndPoint(pool slab.Pool, maxPacketSize, recvChanSize int) *EndPoint {
+	return &EndPoint{
 		protocol: protocol{
 			pool:          pool,
 			maxPacketSize: maxPacketSize,
@@ -124,7 +114,7 @@ func newEndpoint(pool slab.Pool, maxPacketSize, recvChanSize int) *Endpoint {
 }
 
 // Accept accept a virtual connection.
-func (p *Endpoint) Accept() (session *link.Session, connID, remoteID uint32, err error) {
+func (p *EndPoint) Accept() (session *link.Session, connID, remoteID uint32, err error) {
 	select {
 	case conn := <-p.connectChan:
 		return conn.Session, conn.ConnID, conn.RemoteID, nil
@@ -133,8 +123,8 @@ func (p *Endpoint) Accept() (session *link.Session, connID, remoteID uint32, err
 	}
 }
 
-// Dial create a virtual connection and dial to a remote endpoint.
-func (p *Endpoint) Dial(remoteID uint32) (*link.Session, uint32, error) {
+// Dial create a virtual connection and dial to a remote EndPoint.
+func (p *EndPoint) Dial(remoteID uint32) (*link.Session, uint32, error) {
 	p.dialMutex.Lock()
 	defer p.dialMutex.Unlock()
 
@@ -153,22 +143,30 @@ func (p *Endpoint) Dial(remoteID uint32) (*link.Session, uint32, error) {
 	}
 }
 
-// Close endpoint.
-func (p *Endpoint) Close() {
+// Close EndPoint.
+func (p *EndPoint) Close() {
 	p.closeOnce.Do(func() {
 		p.session.Close()
 		close(p.closeChan)
 	})
 }
 
-func (p *Endpoint) keepalive(pingInterval time.Duration) {
-	ticker := time.NewTicker(pingInterval)
-	defer ticker.Stop()
+func (p *EndPoint) keepalive(pingInterval, pingTimeout time.Duration, timeoutCallback func()) {
 	for {
 		select {
-		case <-ticker.C:
+		case <-EndPointTimer.After(pingInterval):
 			if time.Duration(atomic.LoadInt64(&p.lastActive)) >= pingInterval {
 				if p.send(p.session, p.encodePingCmd()) != nil {
+					return
+				}
+			}
+			if timeoutCallback != nil {
+				select {
+				case <-EndPointTimer.After(pingTimeout):
+					if time.Duration(atomic.LoadInt64(&p.lastActive)) >= pingTimeout {
+						timeoutCallback()
+					}
+				case <-p.closeChan:
 					return
 				}
 			}
@@ -178,7 +176,7 @@ func (p *Endpoint) keepalive(pingInterval time.Duration) {
 	}
 }
 
-func (p *Endpoint) addVirtualConn(connID, remoteID uint32, c chan vconn) {
+func (p *EndPoint) addVirtualConn(connID, remoteID uint32, c chan vconn) {
 	codec := p.newVirtualCodec(p.session, connID, p.recvChanSize, &p.lastActive)
 	session := link.NewSession(codec, 0)
 	p.virtualConns.Put(connID, session)
@@ -190,11 +188,11 @@ func (p *Endpoint) addVirtualConn(connID, remoteID uint32, c chan vconn) {
 	}
 }
 
-func (p *Endpoint) loop() {
+func (p *EndPoint) loop() {
 	defer func() {
 		p.Close()
 		if err := recover(); err != nil {
-			log.Printf("fast/gateway.Endpoint panic: %v\n%s", err, debug.Stack())
+			log.Printf("fast/gateway.EndPoint panic: %v\n%s", err, debug.Stack())
 		}
 	}()
 	for {
@@ -227,7 +225,7 @@ func (p *Endpoint) loop() {
 	}
 }
 
-func (p *Endpoint) processCmd(buf []byte) {
+func (p *EndPoint) processCmd(buf []byte) {
 	cmd := p.decodeCmd(buf)
 	switch cmd {
 	case acceptCmd:

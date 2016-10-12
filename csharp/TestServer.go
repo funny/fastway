@@ -21,14 +21,34 @@ func main() {
 	}
 
 	pool := slab.NewAtomPool(64, 64*1024, 2, 1024*1024)
-	gateway := fastway.NewGateway(pool, 512*1024)
-	go gateway.ServeClients(lsn1, 10, 1024, 10000, time.Second*3)
-	go gateway.ServeServers(lsn2, "test key", time.Second*3, 1024, 10000, time.Second*3)
 
-	server, err := fastway.DialServer(
-		"tcp", lsn2.Addr().String(), pool,
-		10086, "test key", time.Second*3,
-		512*1024, 1024, 10000, 10000, time.Second,
+	gateway := fastway.NewGateway(pool, 512*1024)
+
+	go gateway.ServeClients(lsn1, fastway.GatewayCfg{
+		MaxConn:      10,
+		BufferSize:   1024,
+		SendChanSize: 10000,
+		IdleTimeout:  time.Second * 3,
+	})
+
+	go gateway.ServeServers(lsn2, fastway.GatewayCfg{
+		AuthKey:      "test key",
+		BufferSize:   1024,
+		SendChanSize: 10000,
+		IdleTimeout:  time.Second * 3,
+	})
+
+	server, err := fastway.DialServer("tcp", lsn2.Addr().String(),
+		fastway.EndPointCfg{
+			ServerID:     10086,
+			AuthKey:      "test key",
+			MemPool:      pool,
+			MaxPacket:    512 * 1024,
+			BufferSize:   1024,
+			SendChanSize: 10000,
+			RecvChanSize: 10000,
+			PingInterval: time.Second,
+		},
 	)
 	if err != nil {
 		log.Fatal(err)

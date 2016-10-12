@@ -16,6 +16,14 @@ import (
 
 const connBuckets = 32
 
+type GatewayCfg struct {
+	MaxConn      int
+	BufferSize   int
+	SendChanSize int
+	IdleTimeout  time.Duration
+	AuthKey      string
+}
+
 // Gateway implements gateway protocol.
 type Gateway struct {
 	protocol
@@ -87,41 +95,33 @@ func (g *Gateway) getPhysicalConn(connID uint32, side int) *link.Session {
 }
 
 // ServeClients serve client connections.
-// maxConn limits max virtual connection number for each client.
-// bufferSize settings bufio.Reader memory usage for each client.
-// sendChanSize settings async sending behavior for clients.
-// idleTimeout is the idle timeout of client connections.
-func (g *Gateway) ServeClients(lsn net.Listener, maxConn, bufferSize, sendChanSize int, idleTimeout time.Duration) {
+func (g *Gateway) ServeClients(lsn net.Listener, cfg GatewayCfg) {
 	g.servers[0] = link.NewServer(lsn, link.ProtocolFunc(func(rw io.ReadWriter) (link.Codec, link.Context, error) {
-		return g.newCodec(rw.(net.Conn), bufferSize), nil, nil
-	}), sendChanSize)
+		return g.newCodec(rw.(net.Conn), cfg.BufferSize), nil, nil
+	}), cfg.SendChanSize)
 
 	g.servers[0].Serve(link.HandlerFunc(func(session *link.Session, ctx link.Context, err error) {
-		g.handleSession(atomic.AddUint32(&g.physicalConnID, 1), session, 0, maxConn, idleTimeout)
+		g.handleSession(atomic.AddUint32(&g.physicalConnID, 1), session, 0, cfg.MaxConn, cfg.IdleTimeout)
 	}))
 }
 
 // ServeServers serve server connections.
-// maxConn limits max virtual connection number for each server.
-// bufferSize settings bufio.Reader memory usage for each servers.
-// sendChanSize settings async sending behavior for servers.
-// idleTimeout is the idle timeout of server connections.
-func (g *Gateway) ServeServers(lsn net.Listener, key string, authTimeout time.Duration, bufferSize, sendChanSize int, idleTimeout time.Duration) {
+func (g *Gateway) ServeServers(lsn net.Listener, cfg GatewayCfg) {
 	g.servers[1] = link.NewServer(lsn, link.ProtocolFunc(func(rw io.ReadWriter) (link.Codec, link.Context, error) {
-		serverID, err := g.serverAuth(rw.(net.Conn), []byte(key), authTimeout)
+		serverID, err := g.serverAuth(rw.(net.Conn), []byte(cfg.AuthKey))
 		if err != nil {
 			log.Printf("error happends when accept server from %s: %s", rw.(net.Conn).RemoteAddr(), err)
 			return nil, nil, err
 		}
 		log.Printf("accept server %d from %s", serverID, rw.(net.Conn).RemoteAddr())
-		return g.newCodec(rw.(net.Conn), bufferSize), serverID, nil
-	}), sendChanSize)
+		return g.newCodec(rw.(net.Conn), cfg.BufferSize), serverID, nil
+	}), cfg.SendChanSize)
 
 	g.servers[1].Serve(link.HandlerFunc(func(session *link.Session, ctx link.Context, err error) {
 		if err != nil {
 			return
 		}
-		g.handleSession(ctx.(uint32), session, 1, 0, idleTimeout)
+		g.handleSession(ctx.(uint32), session, 1, 0, cfg.IdleTimeout)
 	}))
 }
 

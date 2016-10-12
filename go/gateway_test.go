@@ -18,12 +18,30 @@ const (
 	TestBufferSize   = 1024
 	TestSendChanSize = 10240
 	TestRecvChanSize = 10240
-	TestIdleTimeout  = time.Second * 30
-	TestPingInterval = time.Second * 15
+	TestIdleTimeout  = time.Second * 2
+	TestPingInterval = time.Second
 	TestAuthKey      = "123"
-	TestAuthTimeout  = time.Second * 3
 	TestServerID     = 123
 )
+
+var TestGatewayCfg = GatewayCfg{
+	MaxConn:      TestMaxConn,
+	BufferSize:   TestBufferSize,
+	SendChanSize: TestSendChanSize,
+	IdleTimeout:  TestIdleTimeout,
+	AuthKey:      TestAuthKey,
+}
+
+var TestEndPointCfg = EndPointCfg{
+	MemPool:      TestPool,
+	MaxPacket:    TestMaxPacket,
+	BufferSize:   TestBufferSize,
+	SendChanSize: TestSendChanSize,
+	RecvChanSize: TestRecvChanSize,
+	PingInterval: TestPingInterval,
+	ServerID:     TestServerID,
+	AuthKey:      TestAuthKey,
+}
 
 func Test_Gateway(t *testing.T) {
 	lsn1, err := net.Listen("tcp", "127.0.0.1:0")
@@ -36,15 +54,15 @@ func Test_Gateway(t *testing.T) {
 
 	gw := NewGateway(TestPool, TestMaxPacket)
 
-	go gw.ServeClients(lsn1, TestMaxConn, TestBufferSize, TestSendChanSize, TestIdleTimeout)
-	go gw.ServeServers(lsn2, TestAuthKey, TestAuthTimeout, TestBufferSize, TestSendChanSize, TestIdleTimeout)
+	go gw.ServeClients(lsn1, TestGatewayCfg)
+	go gw.ServeServers(lsn2, TestGatewayCfg)
 
 	time.Sleep(time.Second)
 
-	client, err := DialClient("tcp", lsn1.Addr().String(), TestPool, TestMaxPacket, TestBufferSize, TestSendChanSize, TestRecvChanSize, TestPingInterval)
+	client, err := DialClient("tcp", lsn1.Addr().String(), TestEndPointCfg)
 	utest.IsNilNow(t, err)
 
-	server, err := DialServer("tcp", lsn2.Addr().String(), TestPool, TestServerID, TestAuthKey, TestAuthTimeout, TestMaxPacket, TestBufferSize, TestSendChanSize, TestRecvChanSize, TestPingInterval)
+	server, err := DialServer("tcp", lsn2.Addr().String(), TestEndPointCfg)
 	utest.IsNilNow(t, err)
 
 	// make sure connection registered
@@ -139,15 +157,15 @@ func Test_GatewayParallel(t *testing.T) {
 
 	gw := NewGateway(TestPool, TestMaxPacket)
 
-	go gw.ServeClients(lsn1, TestMaxConn, TestBufferSize, TestSendChanSize, TestIdleTimeout)
-	go gw.ServeServers(lsn2, TestAuthKey, TestAuthTimeout, TestBufferSize, TestSendChanSize, TestIdleTimeout)
+	go gw.ServeClients(lsn1, TestGatewayCfg)
+	go gw.ServeServers(lsn2, TestGatewayCfg)
 
 	time.Sleep(time.Second)
 
-	client, err := DialClient("tcp", lsn1.Addr().String(), TestPool, TestMaxPacket, TestBufferSize, TestSendChanSize, TestRecvChanSize, TestPingInterval)
+	client, err := DialClient("tcp", lsn1.Addr().String(), TestEndPointCfg)
 	utest.IsNilNow(t, err)
 
-	server, err := DialServer("tcp", lsn2.Addr().String(), TestPool, TestServerID, TestAuthKey, TestAuthTimeout, TestMaxPacket, TestBufferSize, TestSendChanSize, TestRecvChanSize, TestPingInterval)
+	server, err := DialServer("tcp", lsn2.Addr().String(), TestEndPointCfg)
 	utest.IsNilNow(t, err)
 
 	// make sure connection registered
@@ -259,8 +277,8 @@ func Test_BadClients(t *testing.T) {
 
 	gw := NewGateway(TestPool, TestMaxPacket)
 
-	go gw.ServeClients(lsn1, TestMaxConn, TestBufferSize, TestSendChanSize, TestIdleTimeout)
-	go gw.ServeServers(lsn2, TestAuthKey, TestAuthTimeout, TestBufferSize, TestSendChanSize, TestIdleTimeout)
+	go gw.ServeClients(lsn1, TestGatewayCfg)
+	go gw.ServeServers(lsn2, TestGatewayCfg)
 
 	time.Sleep(time.Second)
 
@@ -280,7 +298,7 @@ func Test_BadClients(t *testing.T) {
 	conn.Close()
 }
 
-func Test_BadEndpoint(t *testing.T) {
+func Test_BadEndPoint(t *testing.T) {
 	lsn1, err := net.Listen("tcp", "127.0.0.1:0")
 	utest.IsNilNow(t, err)
 	defer lsn1.Close()
@@ -291,32 +309,32 @@ func Test_BadEndpoint(t *testing.T) {
 
 	gw := NewGateway(TestPool, TestMaxPacket)
 
-	go gw.ServeClients(lsn1, TestMaxConn, TestBufferSize, TestSendChanSize, time.Second*2)
-	go gw.ServeServers(lsn2, TestAuthKey, TestAuthTimeout, TestBufferSize, TestSendChanSize, time.Second*2)
+	go gw.ServeClients(lsn1, TestGatewayCfg)
+	go gw.ServeServers(lsn2, TestGatewayCfg)
 
 	// bad remote ID
-	client, err := DialClient("tcp", lsn1.Addr().String(), TestPool, 2048, 1024, 10240, 10240, time.Second)
+	client, err := DialClient("tcp", lsn1.Addr().String(), TestEndPointCfg)
 	utest.IsNilNow(t, err)
 	_, _, err = client.Dial(12345)
 	utest.NotNilNow(t, err)
 	utest.EqualNow(t, err, ErrRefused)
 
 	// bad address
-	_, err = DialClient("tcp", "127.0.0.1:0", TestPool, TestMaxPacket, TestBufferSize, TestSendChanSize, TestRecvChanSize, time.Second)
+	_, err = DialClient("tcp", "127.0.0.1:0", TestEndPointCfg)
 	utest.NotNilNow(t, err)
-	_, err = DialServer("tcp", "127.0.0.1:0", TestPool, TestServerID, TestAuthKey, TestAuthTimeout, TestMaxPacket, TestBufferSize, TestSendChanSize, TestRecvChanSize, time.Second)
+	_, err = DialServer("tcp", "127.0.0.1:0", TestEndPointCfg)
 	utest.NotNilNow(t, err)
 
 	// idle timeout
 	conn, err := net.Dial("tcp", lsn1.Addr().String())
 	utest.IsNilNow(t, err)
 	defer conn.Close()
-	_, err = DialClient("tcp", lsn1.Addr().String(), TestPool, TestMaxPacket, TestBufferSize, TestSendChanSize, TestRecvChanSize, time.Second*10)
-	utest.IsNilNow(t, err)
 	time.Sleep(time.Second * 4)
 
 	// bad key
-	server, _ := DialServer("tcp", lsn2.Addr().String(), TestPool, TestServerID, "bad key", TestAuthTimeout, TestMaxPacket, TestBufferSize, TestSendChanSize, TestRecvChanSize, time.Second)
+	cfg := TestEndPointCfg
+	cfg.AuthKey = "bad"
+	server, _ := DialServer("tcp", lsn2.Addr().String(), cfg)
 	utest.NotNilNow(t, server)
 	var x = []byte{0, 0, 0}
 	_, err = server.session.Codec().(*codec).conn.Read(x)
@@ -332,6 +350,6 @@ func Test_BadEndpoint(t *testing.T) {
 			conn.Close()
 		}
 	}()
-	_, err = DialServer("tcp", lsn3.Addr().String(), TestPool, TestServerID, TestAuthKey, TestAuthTimeout, TestMaxPacket, TestBufferSize, TestSendChanSize, TestRecvChanSize, time.Second)
+	_, err = DialServer("tcp", lsn3.Addr().String(), TestEndPointCfg)
 	utest.NotNilNow(t, err)
 }

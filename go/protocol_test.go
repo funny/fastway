@@ -4,7 +4,6 @@ import (
 	"math/rand"
 	"net"
 	"testing"
-	"time"
 
 	"github.com/funny/link"
 	"github.com/funny/utest"
@@ -175,13 +174,13 @@ func Test_ServerHandshake(t *testing.T) {
 	go func() {
 		conn, err := net.Dial("tcp", lsn.Addr().String())
 		utest.IsNilNow(t, err)
-		TestProto.serverInit(conn, 123, []byte("test"), time.Second*3)
+		TestProto.serverInit(conn, 123, []byte("test"))
 	}()
 
 	conn, err := lsn.Accept()
 	utest.IsNilNow(t, err)
 
-	serverID, err := TestProto.serverAuth(conn, []byte("test"), time.Second*3)
+	serverID, err := TestProto.serverAuth(conn, []byte("test"))
 	utest.IsNilNow(t, err)
 	utest.EqualNow(t, serverID, 123)
 }
@@ -210,7 +209,7 @@ func Test_BadHandshake(t *testing.T) {
 	conn1, err := net.Dial("tcp", lsn1.Addr().String())
 	utest.IsNilNow(t, err)
 	defer conn1.Close()
-	err = TestProto.serverInit(conn1, 1, []byte("1"), time.Second)
+	err = TestProto.serverInit(conn1, 1, []byte("1"))
 	utest.NotNilNow(t, err)
 
 	go func() {
@@ -219,7 +218,7 @@ func Test_BadHandshake(t *testing.T) {
 	conn2, err := lsn1.Accept()
 	utest.IsNilNow(t, err)
 	defer conn2.Close()
-	_, err = TestProto.serverAuth(conn2, []byte("1"), time.Second)
+	_, err = TestProto.serverAuth(conn2, []byte("1"))
 	utest.NotNilNow(t, err)
 }
 

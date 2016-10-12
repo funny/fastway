@@ -188,10 +188,10 @@ func (p *protocol) encodePingCmd() []byte {
 // ErrServerAuthFailed happens when server connection auth failed.
 var ErrServerAuthFailed = errors.New("server auth failed")
 
-func (p *protocol) serverInit(conn net.Conn, serverID uint32, key []byte, timeout time.Duration) error {
+func (p *protocol) serverInit(conn net.Conn, serverID uint32, key []byte) error {
 	var buf [md5.Size + cmdIDSize]byte
 
-	conn.SetDeadline(time.Now().Add(timeout))
+	conn.SetDeadline(time.Now().Add(time.Second * 5))
 	if _, err := io.ReadFull(conn, buf[:8]); err != nil {
 		conn.Close()
 		return err
@@ -212,10 +212,10 @@ func (p *protocol) serverInit(conn net.Conn, serverID uint32, key []byte, timeou
 	return nil
 }
 
-func (p *protocol) serverAuth(conn net.Conn, key []byte, timeout time.Duration) (uint32, error) {
+func (p *protocol) serverAuth(conn net.Conn, key []byte) (uint32, error) {
 	var buf [md5.Size + cmdIDSize]byte
 
-	conn.SetDeadline(time.Now().Add(timeout))
+	conn.SetDeadline(time.Now().Add(time.Second * 5))
 	rand.Read(buf[:8])
 	if _, err := conn.Write(buf[:8]); err != nil {
 		conn.Close()

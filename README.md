@@ -45,8 +45,8 @@
 + 网关运用零拷贝和内存池来提升消息处理效率
 + 服务端主动连接客户端时，客户端连接ID可以是RPC获取或Redis存储，具体实现由用户自定义
 
-命令行
-=====
+网关
+====
 
 本网关提供了一个命令行程序用来对外提供服务。
 
@@ -55,7 +55,7 @@
 | 参数名 | 说明 | 默认值 |
 | --- | --- | --- |
 | ReusePort | 是否开启reuseport特性 | false |
-| MaxPacketSize | 最大的消息包体积 | 512K |
+| MaxPacket | 最大的消息包体积 | 512K |
 | MemPoolType | [slab内存池类型 (sync、atom或chan)](https://github.com/funny/slab) | atom |
 | MemPoolFactor | slab内存池的Chunk递增指数 | 2 |
 | MemPoolMaxChunk | slab内存池中最大的Chunk大小 | 64K |
@@ -83,7 +83,6 @@
 | --- | --- | --- |
 | ServerAddr | 网关暴露给服务端的地址 | ":0" |
 | ServerAuthPassword | 用于验证服务端合法性的秘钥 | 空 |
-| ServerAuthTimeout | 验证服务端连接时的最大IO等待时间 | 3秒 |
 | ServerBufferSize | 每个服务端连接使用的 bufio.Reader 缓冲区大小 | 64K |
 | ServerIdleTimeout | 服务端连接空闲超过时长，服务端应在此时间范围内发送ping命令来保活 | 30秒 |
 | ServerSendChanSize | 每个服务端连接异步发送消息用的chan缓冲区大小 | 10万 |
@@ -92,6 +91,8 @@
 | ServerSnetBuffer | 每个服务端物理连接对应的snet重连缓冲区大小 | 1M |
 | ServerSnetInitTimeout | 服务端snet握手超时时间 | 10秒 |
 | ServerSnetWaitTimeout | 服务端snet等待重连超时时间 | 60秒 |
+
+当网关开启snet重连协议时，
 
 API
 ===

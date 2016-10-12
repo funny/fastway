@@ -16,14 +16,17 @@
 
 ```go
 client := proto.NewClient(
-	Conn,          // 物理连接
-	MyMsgFormat,   // 消息格式
-	MyMemPool,     // 内存池
-	MaxPacketSize, // 包体积限制
-	BufferSize,    // 预读所用的缓冲区大小
-	SendChanSize,  // 物理连接异步发送用的chan缓冲区大小
-	RecvChanSize,  // 虚拟连接异步接收用的chan缓冲区大小
-	PingInterval,  // 发送Ping的时间间隔，必须小于网关的ClientIdleTimeout
+	Conn, // 物理连接
+	fastway.EndPointCfg {
+		MemPool,         // 内存池
+		MaxPacket,       // 包体积限制
+		BufferSize,      // 预读所用的缓冲区大小
+		SendChanSize,    // 物理连接异步发送用的chan缓冲区大小
+		RecvChanSize,    // 虚拟连接异步接收用的chan缓冲区大小
+		PingInterval,    // 发送Ping的时间间隔，必须小于网关的ClientIdleTimeout
+		PingTimeout,     // 可选参数，当网关响应Ping超过此项设置，将调用TimeoutCallback
+		TimeoutCallback, // 此项设置需要跟PingTimeout配套
+	},
 )
 ```
 
@@ -31,17 +34,19 @@ client := proto.NewClient(
 
 ```go
 server, err := proto.DialServer(
-	Conn,          // 物理连接
-	MyMsgFormat,   // 消息格式
-	MyMemPool,     // 内存池
-	ServerID,      // 服务端ID
-	AuthKey,       // 身份验证用的Key
-	AuthTimeout,   // 身份验证IO等待超时时间
-	MaxPacketSize, // 包体积限制
-	BufferSize,    // 预读所用的缓冲区大小
-	SendChanSize,  // 物理连接异步发送用的chan缓冲区大小
-	RecvChanSize,  // 虚拟连接异步接收用的chan缓冲区大小
-	PingInterval,  // 发送Ping的时间间隔，必须小于网关的ServerIdleTimeout
+	Conn, // 物理连接
+	fastway.EndPointCfg {
+		ServerID,        // 服务端ID
+		AuthKey,         // 身份验证用的Key
+		MemPool,         // 内存池
+		MaxPacket,       // 包体积限制
+		BufferSize,      // 预读所用的缓冲区大小
+		SendChanSize,    // 物理连接异步发送用的chan缓冲区大小
+		RecvChanSize,    // 虚拟连接异步接收用的chan缓冲区大小
+		PingInterval,    // 发送Ping的时间间隔，必须小于网关的ClientIdleTimeout
+		PingTimeout,     // 可选参数，当网关响应Ping超过此项设置，将调用TimeoutCallback
+		TimeoutCallback, // 此项设置需要跟PingTimeout配套
+	},
 )
 ```
 
