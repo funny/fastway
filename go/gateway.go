@@ -229,17 +229,15 @@ func (g *Gateway) handleSession(id uint32, session *link.Session, side, maxConn 
 		}
 
 		pair := g.getVirtualConn(connID)
-
+		if pair[side] == nil || pair[otherSide] == nil {
+			g.free(msg)
+			g.send(session, g.encodeCloseCmd(connID))
+			continue
+		}
 		if pair[side] != session {
 			g.free(msg)
 			panic("endpoint not match")
 		}
-
-		if pair[otherSide] == nil {
-			g.free(msg)
-			continue
-		}
-
 		g.send(pair[otherSide], msg)
 	}
 }
