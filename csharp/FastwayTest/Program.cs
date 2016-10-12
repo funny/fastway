@@ -18,7 +18,7 @@ namespace FastwayTest
 			//Thread.Sleep (1000 * 5);
 
 			for (var i = 0; i < 100000; i++) {
-				var n = random.Next (1000, 2000);
+				var n = random.Next (10, 2000);
 				var msg1 = new byte[n];
 				random.NextBytes(msg1);
 
@@ -40,6 +40,11 @@ namespace FastwayTest
 					break;
 				}
 
+				if (msg1.Length != msg2.Length) {
+					Console.WriteLine ("msg1.Length != msg2.Length, {0}, {1}", msg1.Length, msg2.Length);
+					return;
+				}
+
 				for (var j = 0; j < n; j++) {
 					if (msg1 [j] != msg2 [j]) {
 						Console.WriteLine ("msg1 [j] != msg2 [j]");
@@ -47,7 +52,7 @@ namespace FastwayTest
 					}
 				}
 
-				Console.WriteLine (i);
+				Console.WriteLine ("{0}, {1}", i, msg1.Length);
 			}
 
 			conn.Close ();

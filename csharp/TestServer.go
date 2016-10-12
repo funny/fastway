@@ -5,7 +5,7 @@ import (
 	"net"
 	"time"
 
-	fastway "github.com/fast/fastway/go"
+	fastway "github.com/funny/fastway/go"
 	"github.com/funny/slab"
 )
 
@@ -22,8 +22,8 @@ func main() {
 
 	pool := slab.NewAtomPool(64, 64*1024, 2, 1024*1024)
 	gateway := fastway.NewGateway(pool, 512*1024)
-	go gateway.ServeClients(lsn1, 10, 1024, 10000, time.Second)
-	go gateway.ServeServers(lsn2, "test key", time.Second*3, 1024, 10000, time.Second)
+	go gateway.ServeClients(lsn1, 10, 1024, 10000, time.Second*3)
+	go gateway.ServeServers(lsn2, "test key", time.Second*3, 1024, 10000, time.Second*3)
 
 	server, err := fastway.DialServer(
 		"tcp", lsn2.Addr().String(), pool,
@@ -34,6 +34,14 @@ func main() {
 		log.Fatal(err)
 	}
 	defer server.Close()
+
+	go func() {
+		for _ = range time.Tick(time.Second) {
+			if err := server.Ping(); err != nil {
+				log.Fatal(err)
+			}
+		}
+	}()
 
 	for {
 		conn, connID, remoteID, err := server.Accept()

@@ -147,7 +147,7 @@ namespace Fastway
 						bw.Write (remoteID);
 					}
 				}
-				this.TrySend (buf);
+				this.TrySend (buf, buf.Length);
 
 				return conn;
 			}
@@ -162,7 +162,7 @@ namespace Fastway
 					bw.Write (msg);
 
 					byte[] buf = ms.GetBuffer ();
-					this.TrySend(buf);
+					this.TrySend(buf, (int)ms.Length);
 				}
 			}
 		}
@@ -177,7 +177,7 @@ namespace Fastway
 					bw.Write ((byte)5);
 				}
 			}
-			this.TrySend (buf);
+			this.TrySend (buf, buf.Length);
 		}
 
 		internal void Close(uint connID, Conn conn)
@@ -207,7 +207,7 @@ namespace Fastway
 					bw.Write (connID);
 				}
 			}
-			this.TrySend(buf);
+			this.TrySend(buf, buf.Length);
 		}
 
 		private void ReadHead()
@@ -392,10 +392,10 @@ namespace Fastway
 			}
 		}
 
-		private void TrySend(byte[] buf)
+		private void TrySend(byte[] buf, int length)
 		{
 			try {
-				this.s.BeginWrite (buf, 0, buf.Length, null, null);
+				this.s.BeginWrite (buf, 0, length, null, null);
 			} catch {
 				this.Close();
 			}
