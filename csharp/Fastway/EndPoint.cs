@@ -413,6 +413,7 @@ namespace Fastway
 			if (timeoutCallback != null) {
 				this.pingWatchTimer = new System.Timers.Timer (pingTimeout);
 				this.pingWatchTimer.Elapsed += (sender, e) => {
+					this.pingWatchTimer.Stop();
 					this.keepAliveTimer.Start ();
 					timeoutCallback ();
 				};
@@ -423,8 +424,8 @@ namespace Fastway
 			this.keepAliveTimer.Elapsed += (sender, e) => {
 				if (DateTime.Now.Subtract (LastActive).TotalMilliseconds >= pingInterval) {
 					if (timeoutCallback != null) {
-						this.pingWatchTimer.Start ();
 						this.keepAliveTimer.Stop ();
+						this.pingWatchTimer.Start ();
 					}
 					Ping ();
 				}
