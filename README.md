@@ -114,7 +114,7 @@ kill `cat fastway.pid`
 
 此外，还可以对网关进程发送指令来获取网关的运行状态。
 
-以开始【`cpuprof`】(https://blog.golang.org/profiling-go-programs)为例，可以通过以下方式开启：
+以开始[`cpuprof`](https://blog.golang.org/profiling-go-programs)为例，可以通过以下方式开启：
 
 ```
 echo "cpuprof start" > fastway.cmd && kill -SIGUSR1 `cat fastway.pid`
