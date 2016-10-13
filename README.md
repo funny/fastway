@@ -94,25 +94,35 @@
 
 命令行程序启动时会自动把当前进程ID记录到`fastway.pid`，并且监听`SIGTERM`和`SIGINT`。
 
-当网关以前台模式运行时，可以用`Ctrl + C`安全关闭网关进程。
+当网关以前台模式运行时，可以用`Ctrl + C`安全退出网关进程。
 
 网关可以使用`docker`、`nohup`、`start-stop-daemon`来做后台运行。
 
-当网关以后台模式运行时，可以使用以下命令安全关闭网关进程：
+以`nohup`为例，可以这样启动网关，并把日志输入重定向到文件中：
+
+```
+nohup fastway 1>fastway.out 2>fastway.err &
+```
+
+网关的日志输出可以使用`logrotate`做自动分卷。
+
+当网关以后台模式运行时，可以使用以下命令安全退出网关进程：
 
 ```
 kill `cat fastway.pid`
 ```
 
-网关的日志输出可以使用`logrotate`做自动分卷。
+此外，还可以对网关进程发送指令来获取网关的运行状态。
 
-此外，还可以对网关进程发送指令来获取网关的运行状态或者开启和关闭[`profiling`](https://blog.golang.org/profiling-go-programs)
-
-以开始`cpuprof`为例，可以通过以下方式向网关发送指令：
+以开始【`cpuprof`】(https://blog.golang.org/profiling-go-programs)为例，可以通过以下方式开启：
 
 ```
-echo "cpuprof start" > fastway.cmd && kill `cat fastway.pid`
+echo "cpuprof start" > fastway.cmd && kill -SIGUSR1 `cat fastway.pid`
 ```
+
+当网关进程收到`SIGUSR1`信号时，将读取`fastway.cmd`文件的内容作为指令执行。
+
+网关指令通过[`cmd`](https://github.com/funny/cmd)包实现，可以自行扩展自定义的指令。
 
 网关支持的完整指令：
 
@@ -270,12 +280,14 @@ API
     4 byte       4 byte      1 byte      4 byte
 ```
 
-相关项目
+相关资料
 =======
 
 * [通讯协议代码生成](https://github.com/funny/fastbin)
 * [slab算法的内存池](https://github.com/funny/slab)
 * [支持断线重连和加密的流协议](https://github.com/funny/snet)
+* [用来实现后台进程指令的包](https://github.com/funny/cmd)
+* [SO_REUSEPORT学习笔记](http://www.blogjava.net/yongboy/archive/2015/02/12/422893.html) by [聂永](https://github.com/yongboy)
 
 参与项目
 =======
