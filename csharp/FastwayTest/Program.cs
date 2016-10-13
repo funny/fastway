@@ -11,7 +11,7 @@ namespace FastwayTest
 		{
 			var tcpClient = new TcpClient ("127.0.0.1", 10010);
 			var netStream = tcpClient.GetStream ();
-			var endPoint = new EndPoint (netStream, 1000);
+			var endPoint = new EndPoint (netStream, 1000, 0, null);
 			var conn = endPoint.Dial (10086);
 			var random = new Random ();
 

@@ -11,12 +11,12 @@
 调用示例1 - 连接到网关：
 
 ```csharp
-var stream = new System.Net.Sockets.TcpClient (
-	GatewayIP, 
-	GatewayPort
-).GetStream ();
-
-var endPoint = new Fastway.EndPoint (stream, PingInterval);
+var endPoint = new Fastway.EndPoint (
+	Stream,          // 基础的网络流，可以是NetStream或者Snet.SnetStream
+	PingInterval,    // Ping网关的时间间隔，必须小于网关的IdleTimeout设置
+	PingTimeout,     // 网关回应Ping的超时时间，如果回应超时，将调用TimeoutCallback
+	TimeoutCallback, // 
+);
 ```
 
 调用示例2 - 连接到服务端：
@@ -55,3 +55,4 @@ if (msg2 == Conn.NoMsg) {
 
 + 当虚拟连接或底层物理连接已关闭，`Conn.Send()`将返回`false`。
 + 网关开启[snet协议](https://github.com/funny/snet)时，客户端的网络流需要是[snet协议的流](https://github.com/funny/snet/csharp)
++ 使用snet协议时，可以利用ping超时机制来做到尽早的尝试重连，依赖于TCP重传失败或者IO超时，都比较难以控制超时时间。

@@ -82,3 +82,4 @@ json.Unmarshal(*(buf.(*[]byte)), &msg)
 
 + 虚拟连接所用的消息类型是`*[]byte`
 + 网关开启[snet协议](https://github.com/funny/snet)时，需要用[snet协议的连接](https://github.com/funny/snet/golang)来创建Endpoint
++ 使用snet协议时，可以利用ping超时机制来做到尽早的尝试重连，依赖于TCP重传失败或者IO超时，都比较难以控制超时时间。

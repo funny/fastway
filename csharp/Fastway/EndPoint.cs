@@ -18,9 +18,10 @@ namespace Fastway
 		internal Queue<byte[]> waitSend;
 
 		public uint ID { get { return id; } }
+
 		public uint RemoteID { get { return remoteID; } }
 
-		public Conn(EndPoint p, uint id, uint remoteID)
+		public Conn (EndPoint p, uint id, uint remoteID)
 		{
 			this.p = p;
 			this.id = id;
@@ -32,7 +33,7 @@ namespace Fastway
 			}
 		}
 
-		public byte[] Receive()
+		public byte[] Receive ()
 		{
 			lock (this) {
 				if (this.closed)
@@ -45,7 +46,7 @@ namespace Fastway
 			}
 		}
 
-		public bool Send(byte[] msg)
+		public bool Send (byte[] msg)
 		{
 			lock (this) {
 				if (this.closed)
@@ -59,7 +60,7 @@ namespace Fastway
 			return true;
 		}
 
-		public void Close()
+		public void Close ()
 		{
 			lock (this) {
 				if (this.closed)
@@ -75,25 +76,27 @@ namespace Fastway
 	{
 		private Stream s;
 		private DateTime lastActive;
+		private System.Timers.Timer keepAliveTimer;
+		private System.Timers.Timer pingWatchTimer;
 		private bool closed;
 		private byte[] headBuf;
 		private Queue<Conn> waitAccept;
 		private Dictionary<uint /* remote id */, List<Conn>> dialWait;
 		private Dictionary<uint /* conn id */, Conn> connections;
 
-		public EndPoint (Stream s, double pingInterval)
+		public EndPoint (Stream s, double pingInterval, double pingTimeout, Action timeoutCallback)
 		{
 			this.s = s;
 			this.headBuf = new byte[8];
 			this.waitAccept = new Queue<Conn> ();
 			this.dialWait = new Dictionary<uint, List<Conn>> ();
-			this.connections = new Dictionary<uint, Conn>();
+			this.connections = new Dictionary<uint, Conn> ();
 
 			this.ReadHead ();
-			this.KeepAlive (pingInterval);
+			this.KeepAlive (pingInterval, pingTimeout, timeoutCallback);
 		}
 
-		public void Close()
+		public void Close ()
 		{
 			lock (this) {
 				this.closed = true;
@@ -106,7 +109,7 @@ namespace Fastway
 			}
 		}
 
-		public Conn Accept()
+		public Conn Accept ()
 		{
 			lock (this) {
 				if (this.closed)
@@ -119,7 +122,7 @@ namespace Fastway
 			return null;
 		}
 
-		public Conn Dial(uint remoteID) 
+		public Conn Dial (uint remoteID)
 		{
 			lock (this) {
 				if (this.closed)
@@ -146,7 +149,7 @@ namespace Fastway
 			}
 		}
 
-		internal void Send(uint connID, byte[] msg)
+		internal void Send (uint connID, byte[] msg)
 		{
 			using (MemoryStream ms = new MemoryStream ()) {
 				using (BinaryWriter bw = new BinaryWriter (ms)) {
@@ -155,12 +158,12 @@ namespace Fastway
 					bw.Write (msg);
 
 					byte[] buf = ms.GetBuffer ();
-					this.TrySend(buf, (int)ms.Length);
+					this.TrySend (buf, (int)ms.Length);
 				}
 			}
 		}
 
-		internal void Close(uint connID, Conn conn)
+		internal void Close (uint connID, Conn conn)
 		{
 			lock (this) {
 				if (this.closed)
@@ -187,15 +190,15 @@ namespace Fastway
 					bw.Write (connID);
 				}
 			}
-			this.TrySend(buf, buf.Length);
+			this.TrySend (buf, buf.Length);
 		}
 
-		private void ReadHead()
+		private void ReadHead ()
 		{
 			try {
 				this.s.BeginRead (headBuf, 0, 8, (IAsyncResult result) => {
-					if (!result.IsCompleted || this.s.EndRead(result) != headBuf.Length) {
-						this.Close();
+					if (!result.IsCompleted || this.s.EndRead (result) != headBuf.Length) {
+						this.Close ();
 						return;
 					}
 				
@@ -204,44 +207,44 @@ namespace Fastway
 					using (MemoryStream ms = new MemoryStream (this.headBuf)) {
 						using (BinaryReader br = new BinaryReader (ms)) {
 							length = (int)br.ReadUInt32 ();
-							connID = br.ReadUInt32();
+							connID = br.ReadUInt32 ();
 						}
 					}
 
 					if (length == 0) {
-						this.Close();
+						this.Close ();
 						return;
 					}
 
-					this.ReadBody(length - 4, connID);
+					this.ReadBody (length - 4, connID);
 				}, null);
 			} catch {
-				this.Close();
+				this.Close ();
 			}
 		}
 
-		private void ReadBody(int length, uint connID)
+		private void ReadBody (int length, uint connID)
 		{
 			try {
 				byte[] buf = new byte[length];
 				this.s.BeginRead (buf, 0, length, (IAsyncResult result) => {
 					byte[] body = (byte[])result.AsyncState;
 
-					if (!result.IsCompleted || this.s.EndRead(result) != body.Length) {
-						this.Close();
+					if (!result.IsCompleted || this.s.EndRead (result) != body.Length) {
+						this.Close ();
 						return;
 					}
 
-					this.HandleMessage(connID, body);
+					this.HandleMessage (connID, body);
 				}, buf);
 			} catch {
-				this.Close();
+				this.Close ();
 				return;
 			}
-			this.ReadHead();
+			this.ReadHead ();
 		}
 
-		private void HandleMessage(uint connID, byte[] body)
+		private void HandleMessage (uint connID, byte[] body)
 		{
 			lock (this) {
 				this.lastActive = DateTime.Now;
@@ -250,45 +253,49 @@ namespace Fastway
 			if (connID != 0) {
 				Conn conn;
 				lock (this) {
-					if (!this.connections.TryGetValue(connID, out conn)) {
-						this.Close(connID, null);
+					if (!this.connections.TryGetValue (connID, out conn)) {
+						this.Close (connID, null);
 						return;
 					}
 				}
 				lock (conn) {
-					conn.waitRecv.Enqueue(body);
+					conn.waitRecv.Enqueue (body);
 				}
 				return;
 			}
 
-			switch (body[0]) {
+			switch (body [0]) {
 			case 1:
-				this.HandleAcceptCmd(body);
+				this.HandleAcceptCmd (body);
 				break;
 			case 2:
-				this.HandleConnectCmd(body);
+				this.HandleConnectCmd (body);
 				break;
 			case 3:
-				this.HandleRefuseCmd(body);
+				this.HandleRefuseCmd (body);
 				break;
 			case 4:
-				this.HandleCloseCmd(body);
+				this.HandleCloseCmd (body);
 				break;
 			case 5:
+				if (this.pingWatchTimer != null) {
+					this.pingWatchTimer.Stop ();
+					this.keepAliveTimer.Start ();
+				}
 				break;
 			default:
-				throw new Exception("Unsupported Gateway Command");
+				throw new Exception ("Unsupported Gateway Command");
 			}
 		}
 
-		private void HandleAcceptCmd(byte[] body)
+		private void HandleAcceptCmd (byte[] body)
 		{
 			uint connID;
 			uint remoteID;
 			using (MemoryStream ms = new MemoryStream (body, 1, 8)) {
 				using (BinaryReader br = new BinaryReader (ms)) {
 					connID = br.ReadUInt32 ();
-					remoteID = br.ReadUInt32();
+					remoteID = br.ReadUInt32 ();
 				}
 			}
 
@@ -313,14 +320,14 @@ namespace Fastway
 			}
 		}
 
-		private void HandleConnectCmd(byte[] body)
+		private void HandleConnectCmd (byte[] body)
 		{
 			uint connID;
 			uint remoteID;
 			using (MemoryStream ms = new MemoryStream (body, 1, 8)) {
 				using (BinaryReader br = new BinaryReader (ms)) {
 					connID = br.ReadUInt32 ();
-					remoteID = br.ReadUInt32();
+					remoteID = br.ReadUInt32 ();
 				}
 			}
 
@@ -331,12 +338,12 @@ namespace Fastway
 			}
 		}
 
-		private void HandleRefuseCmd(byte[] body)
+		private void HandleRefuseCmd (byte[] body)
 		{
 			uint remoteID;
 			using (MemoryStream ms = new MemoryStream (body, 1, 4)) {
 				using (BinaryReader br = new BinaryReader (ms)) {
-					remoteID = br.ReadUInt32();
+					remoteID = br.ReadUInt32 ();
 				}
 			}
 
@@ -352,18 +359,18 @@ namespace Fastway
 			}
 		}
 
-		private void HandleCloseCmd(byte[] body)
+		private void HandleCloseCmd (byte[] body)
 		{
 			uint connID;
 			using (MemoryStream ms = new MemoryStream (body, 1, 4)) {
 				using (BinaryReader br = new BinaryReader (ms)) {
-					connID = br.ReadUInt32();
+					connID = br.ReadUInt32 ();
 				}
 			}
 
 			lock (this) {
 				Conn conn;
-				if (this.connections.TryGetValue(connID, out conn)) {
+				if (this.connections.TryGetValue (connID, out conn)) {
 					lock (conn) {
 						conn.closed = true;
 					}
@@ -371,12 +378,12 @@ namespace Fastway
 			}
 		}
 
-		private void TrySend(byte[] buf, int length)
+		private void TrySend (byte[] buf, int length)
 		{
 			try {
 				this.s.BeginWrite (buf, 0, length, null, null);
 			} catch {
-				this.Close();
+				this.Close ();
 			}
 		}
 
@@ -388,7 +395,7 @@ namespace Fastway
 			}
 		}
 
-		private void Ping()
+		private void Ping ()
 		{
 			byte[] buf = new byte[9];
 			using (MemoryStream ms = new MemoryStream (buf)) {
@@ -401,15 +408,28 @@ namespace Fastway
 			this.TrySend (buf, buf.Length);
 		}
 
-		private void KeepAlive(double pingInterval)
+		private void KeepAlive(double pingInterval, double pingTimeout, Action timeoutCallback)
 		{
-			System.Timers.Timer timer = new System.Timers.Timer (pingInterval);
-			timer.Elapsed += (object sender, System.Timers.ElapsedEventArgs e) => {
-				if (DateTime.Now.Subtract(LastActive).TotalMilliseconds >= pingInterval) {
-					Ping();
+			if (timeoutCallback != null) {
+				this.pingWatchTimer = new System.Timers.Timer (pingTimeout);
+				this.pingWatchTimer.Elapsed += (sender, e) => {
+					this.keepAliveTimer.Start ();
+					timeoutCallback ();
+				};
+				this.pingWatchTimer.Stop ();
+			}
+
+			this.keepAliveTimer = new System.Timers.Timer (pingInterval);
+			this.keepAliveTimer.Elapsed += (sender, e) => {
+				if (DateTime.Now.Subtract (LastActive).TotalMilliseconds >= pingInterval) {
+					if (timeoutCallback != null) {
+						this.pingWatchTimer.Start ();
+						this.keepAliveTimer.Stop ();
+					}
+					Ping ();
 				}
 			};
-			timer.Start ();
+			this.keepAliveTimer.Start ();
 		}
 	}
 }
