@@ -96,29 +96,29 @@ func (g *Gateway) getPhysicalConn(connID uint32, side int) *link.Session {
 
 // ServeClients serve client connections.
 func (g *Gateway) ServeClients(lsn net.Listener, cfg GatewayCfg) {
-	g.servers[0] = link.NewServer(lsn, link.ProtocolFunc(func(rw io.ReadWriter) (link.Codec, link.Context, error) {
-		return g.newCodec(rw.(net.Conn), cfg.BufferSize), nil, nil
+	g.servers[0] = link.NewServer(lsn, link.ProtocolFunc(func(rw io.ReadWriter) (link.Codec, error) {
+		return g.newCodec(atomic.AddUint32(&g.physicalConnID, 1), rw.(net.Conn), cfg.BufferSize), nil
 	}), cfg.SendChanSize)
 
-	g.servers[0].Serve(link.HandlerFunc(func(session *link.Session, ctx link.Context, err error) {
-		g.handleSession(atomic.AddUint32(&g.physicalConnID, 1), session, 0, cfg.MaxConn, cfg.IdleTimeout)
+	g.servers[0].Serve(link.HandlerFunc(func(session *link.Session) {
+		g.handleSession(session, 0, cfg.MaxConn, cfg.IdleTimeout)
 	}))
 }
 
 // ServeServers serve server connections.
 func (g *Gateway) ServeServers(lsn net.Listener, cfg GatewayCfg) {
-	g.servers[1] = link.NewServer(lsn, link.ProtocolFunc(func(rw io.ReadWriter) (link.Codec, link.Context, error) {
+	g.servers[1] = link.NewServer(lsn, link.ProtocolFunc(func(rw io.ReadWriter) (link.Codec, error) {
 		serverID, err := g.serverAuth(rw.(net.Conn), []byte(cfg.AuthKey))
 		if err != nil {
 			log.Printf("error happends when accept server from %s: %s", rw.(net.Conn).RemoteAddr(), err)
-			return nil, nil, err
+			return nil, err
 		}
 		log.Printf("accept server %d from %s", serverID, rw.(net.Conn).RemoteAddr())
-		return g.newCodec(rw.(net.Conn), cfg.BufferSize), serverID, nil
+		return g.newCodec(serverID, rw.(net.Conn), cfg.BufferSize), nil
 	}), cfg.SendChanSize)
 
-	g.servers[1].Serve(link.HandlerFunc(func(session *link.Session, ctx link.Context, err error) {
-		g.handleSession(ctx.(uint32), session, 1, 0, cfg.IdleTimeout)
+	g.servers[1].Serve(link.HandlerFunc(func(session *link.Session) {
+		g.handleSession(session, 1, 0, cfg.IdleTimeout)
 	}))
 }
 
@@ -195,7 +195,8 @@ L:
 	gs.Dispose()
 }
 
-func (g *Gateway) handleSession(id uint32, session *link.Session, side, maxConn int, idleTimeout time.Duration) {
+func (g *Gateway) handleSession(session *link.Session, side, maxConn int, idleTimeout time.Duration) {
+	id := session.Codec().(*codec).id
 	state := g.newSessionState(id, session, idleTimeout)
 	session.State = state
 	g.addPhysicalConn(id, side, session)

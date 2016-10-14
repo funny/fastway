@@ -21,14 +21,16 @@ var ErrTooLargePacket = errors.New("too large packet")
 
 type codec struct {
 	*protocol
+	id      uint32
 	conn    net.Conn
 	reader  *bufio.Reader
 	headBuf []byte
 	headDat [SizeofLen]byte
 }
 
-func (p *protocol) newCodec(conn net.Conn, bufferSize int) *codec {
+func (p *protocol) newCodec(id uint32, conn net.Conn, bufferSize int) *codec {
 	c := &codec{
+		id:       id,
 		protocol: p,
 		conn:     conn,
 		reader:   bufio.NewReaderSize(conn, bufferSize),

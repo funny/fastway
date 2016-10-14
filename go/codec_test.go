@@ -58,7 +58,7 @@ func Test_Codec(t *testing.T) {
 	utest.IsNilNow(t, err)
 	defer conn.Close()
 
-	codec := TestProto.newCodec(conn, 1024)
+	codec := TestProto.newCodec(0, conn, 1024)
 
 	for i := 0; i < 1000; i++ {
 		buffer1 := TestPool.Alloc(SizeofLen + rand.Intn(1024))
@@ -83,7 +83,7 @@ func Test_VirtualCodec(t *testing.T) {
 	utest.IsNilNow(t, err)
 	defer conn.Close()
 
-	codec := TestProto.newCodec(conn, 1024)
+	codec := TestProto.newCodec(0, conn, 1024)
 	pconn := link.NewSession(codec, 1000)
 
 	var lastActive int64
@@ -114,7 +114,7 @@ func Test_BadCodec(t *testing.T) {
 	conn, err := net.Dial("tcp", TestAddr)
 	utest.IsNilNow(t, err)
 
-	codec := TestProto.newCodec(conn, 1024)
+	codec := TestProto.newCodec(0, conn, 1024)
 	_, err = conn.Write([]byte{255, 0, 0, 0})
 	utest.IsNilNow(t, err)
 	codec.reader.ReadByte()
@@ -128,7 +128,7 @@ func Test_BadCodec(t *testing.T) {
 	conn, err = net.Dial("tcp", TestAddr)
 	utest.IsNilNow(t, err)
 
-	codec = TestProto.newCodec(conn, 1024)
+	codec = TestProto.newCodec(0, conn, 1024)
 	_, err = conn.Write([]byte{255, 255, 255, 255})
 	utest.IsNilNow(t, err)
 
@@ -143,7 +143,7 @@ func Test_BadVirtualCodec(t *testing.T) {
 	utest.IsNilNow(t, err)
 	defer conn.Close()
 
-	codec := TestProto.newCodec(conn, 1024)
+	codec := TestProto.newCodec(0, conn, 1024)
 	pconn := link.NewSession(codec, 1000)
 
 	var lastActive int64

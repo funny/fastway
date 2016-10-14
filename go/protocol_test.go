@@ -14,7 +14,7 @@ func Test_DialCmd(t *testing.T) {
 	utest.IsNilNow(t, err)
 	defer conn.Close()
 
-	codec := TestProto.newCodec(conn, 1024)
+	codec := TestProto.newCodec(0, conn, 1024)
 
 	for i := 0; i < 10000; i++ {
 		remoteID1 := rand.Uint32()
@@ -40,7 +40,7 @@ func Test_AcceptCmd(t *testing.T) {
 	utest.IsNilNow(t, err)
 	defer conn.Close()
 
-	codec := TestProto.newCodec(conn, 1024)
+	codec := TestProto.newCodec(0, conn, 1024)
 
 	for i := 0; i < 10000; i++ {
 		connID1 := rand.Uint32()
@@ -68,7 +68,7 @@ func Test_RefuseCmd(t *testing.T) {
 	utest.IsNilNow(t, err)
 	defer conn.Close()
 
-	codec := TestProto.newCodec(conn, 1024)
+	codec := TestProto.newCodec(0, conn, 1024)
 
 	for i := 0; i < 10000; i++ {
 		remoteID1 := rand.Uint32()
@@ -94,7 +94,7 @@ func Test_ConnectCmd(t *testing.T) {
 	utest.IsNilNow(t, err)
 	defer conn.Close()
 
-	codec := TestProto.newCodec(conn, 1024)
+	codec := TestProto.newCodec(0, conn, 1024)
 
 	for i := 0; i < 10000; i++ {
 		connID1 := rand.Uint32()
@@ -122,7 +122,7 @@ func Test_CloseCmd(t *testing.T) {
 	utest.IsNilNow(t, err)
 	defer conn.Close()
 
-	codec := TestProto.newCodec(conn, 1024)
+	codec := TestProto.newCodec(0, conn, 1024)
 
 	for i := 0; i < 10000; i++ {
 		conndID1 := rand.Uint32()
@@ -148,7 +148,7 @@ func Test_PingCmd(t *testing.T) {
 	utest.IsNilNow(t, err)
 	defer conn.Close()
 
-	codec := TestProto.newCodec(conn, 1024)
+	codec := TestProto.newCodec(0, conn, 1024)
 
 	for i := 0; i < 10000; i++ {
 		msg1 := TestProto.encodePingCmd()
@@ -190,7 +190,7 @@ func Test_BadSession(t *testing.T) {
 	utest.IsNilNow(t, err)
 	defer conn.Close()
 
-	codec := TestProto.newCodec(conn, 1024)
+	codec := TestProto.newCodec(0, conn, 1024)
 	session := link.NewSession(codec, 10)
 	session.Close()
 

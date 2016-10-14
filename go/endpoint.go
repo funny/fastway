@@ -57,7 +57,7 @@ func DialServer(network, addr string, cfg EndPointCfg) (*EndPoint, error) {
 // conn is the physical connection.
 func NewClient(conn net.Conn, cfg EndPointCfg) (*EndPoint, error) {
 	ep := newEndPoint(cfg.MemPool, cfg.MaxPacket, cfg.RecvChanSize)
-	ep.session = link.NewSession(ep.newCodec(conn, cfg.BufferSize), cfg.SendChanSize)
+	ep.session = link.NewSession(ep.newCodec(0, conn, cfg.BufferSize), cfg.SendChanSize)
 	go ep.loop()
 	go ep.keepalive(cfg.PingInterval, cfg.PingTimeout, cfg.TimeoutCallback)
 	return ep, nil
@@ -70,7 +70,7 @@ func NewServer(conn net.Conn, cfg EndPointCfg) (*EndPoint, error) {
 	if err := ep.serverInit(conn, cfg.ServerID, []byte(cfg.AuthKey)); err != nil {
 		return nil, err
 	}
-	ep.session = link.NewSession(ep.newCodec(conn, cfg.BufferSize), cfg.SendChanSize)
+	ep.session = link.NewSession(ep.newCodec(0, conn, cfg.BufferSize), cfg.SendChanSize)
 	go ep.loop()
 	go ep.keepalive(cfg.PingInterval, cfg.PingTimeout, cfg.TimeoutCallback)
 	return ep, nil
