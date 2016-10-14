@@ -118,9 +118,6 @@ func (g *Gateway) ServeServers(lsn net.Listener, cfg GatewayCfg) {
 	}), cfg.SendChanSize)
 
 	g.servers[1].Serve(link.HandlerFunc(func(session *link.Session, ctx link.Context, err error) {
-		if err != nil {
-			return
-		}
 		g.handleSession(ctx.(uint32), session, 1, 0, cfg.IdleTimeout)
 	}))
 }
