@@ -12,16 +12,16 @@ import (
 	"github.com/funny/utest"
 )
 
-const (
+var (
 	TestMaxConn      = 10000
 	TestMaxPacket    = 2048
 	TestBufferSize   = 1024
-	TestSendChanSize = 10240
-	TestRecvChanSize = 10240
+	TestSendChanSize = int(runtime.GOMAXPROCS(-1) * 10000)
+	TestRecvChanSize = 10000
 	TestIdleTimeout  = time.Second * 2
 	TestPingInterval = time.Second
 	TestAuthKey      = "123"
-	TestServerID     = 123
+	TestServerID     = uint32(123)
 )
 
 var TestGatewayCfg = GatewayCfg{
@@ -248,10 +248,9 @@ L:
 
 	var failed bool
 	for i := 0; i < len(errors); i++ {
-		utest.IsNil(t, errors[i])
 		if !failed && errors[i] != nil {
 			failed = true
-			t.Log(i, errorInfos[i], errors[i])
+			println(i, errorInfos[i], errors[i])
 		}
 	}
 	utest.Assert(t, !failed)
