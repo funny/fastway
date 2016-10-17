@@ -236,12 +236,12 @@ namespace Fastway
 					}
 
 					this.HandleMessage (connID, body);
+
+					this.ReadHead ();
 				}, buf);
 			} catch {
 				this.Close ();
-				return;
 			}
-			this.ReadHead ();
 		}
 
 		private void HandleMessage (uint connID, byte[] body)
