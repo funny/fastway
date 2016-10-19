@@ -44,7 +44,7 @@ func NewGateway(pool slab.Pool, maxPacketSize int) *Gateway {
 
 	gateway.pool = pool
 	gateway.maxPacketSize = maxPacketSize
-	gateway.timer = newTimingWheel(time.Second, 1800)
+	gateway.timer = newTimingWheel(100*time.Millisecond, 18000)
 
 	for i := 0; i < connBuckets; i++ {
 		gateway.virtualConns[i] = make(map[uint32][2]*link.Session)
@@ -169,12 +169,6 @@ func (gs *gwState) Dispose() {
 		// Close releated virtual connections
 		for connID := range gs.virtualConns {
 			gs.gateway.closeVirtualConn(connID)
-		}
-
-		// Free message buffers in send chan.
-		close(gs.session.SendChan())
-		for msg := range gs.session.SendChan() {
-			gs.gateway.free(*(msg.(*[]byte)))
 		}
 	})
 }

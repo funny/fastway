@@ -16,8 +16,8 @@ var (
 	TestMaxConn      = 10000
 	TestMaxPacket    = 2048
 	TestBufferSize   = 1024
-	TestSendChanSize = int(runtime.GOMAXPROCS(-1) * 10000)
-	TestRecvChanSize = 10000
+	TestSendChanSize = int(runtime.GOMAXPROCS(-1) * 6000)
+	TestRecvChanSize = 6000
 	TestIdleTimeout  = time.Second * 2
 	TestPingInterval = time.Second
 	TestAuthKey      = "123"
@@ -194,7 +194,7 @@ L:
 					if err != nil {
 						return
 					}
-					if vconn.Send(msg) != nil {
+					if err := vconn.Send(msg); err != nil {
 						return
 					}
 				}
@@ -250,7 +250,7 @@ L:
 	for i := 0; i < len(errors); i++ {
 		if !failed && errors[i] != nil {
 			failed = true
-			println(i, errorInfos[i], errors[i])
+			println(i, errorInfos[i], errors[i].Error())
 		}
 	}
 	utest.Assert(t, !failed)

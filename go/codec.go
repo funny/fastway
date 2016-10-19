@@ -13,6 +13,10 @@ import (
 	"github.com/funny/link"
 )
 
+var _ = (link.Codec)((*codec)(nil))
+var _ = (link.Codec)((*virtualCodec)(nil))
+var _ = (link.ClearSendChan)((*codec)(nil))
+
 // SizeofLen is the size of `Length` field.
 const SizeofLen = 4
 
@@ -68,6 +72,13 @@ func (c *codec) Send(msg interface{}) error {
 // Close implements link/Codec.Close() method.
 func (c *codec) Close() error {
 	return c.conn.Close()
+}
+
+// ClearSendChan implements link/ClearSendChan interface.
+func (c *codec) ClearSendChan(sendChan <-chan interface{}) {
+	for msg := range sendChan {
+		c.free(*(msg.(*[]byte)))
+	}
 }
 
 // ===========================================================================

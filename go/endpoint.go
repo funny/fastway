@@ -106,8 +106,8 @@ func newEndPoint(pool slab.Pool, maxPacketSize, recvChanSize int) *EndPoint {
 		},
 		recvChanSize: recvChanSize,
 		newConnChan:  make(chan uint32),
-		acceptChan:   make(chan vconn),
-		connectChan:  make(chan vconn),
+		acceptChan:   make(chan vconn, 1),
+		connectChan:  make(chan vconn, 1000),
 		virtualConns: link.NewUint32Channel(),
 		closeChan:    make(chan struct{}),
 	}
