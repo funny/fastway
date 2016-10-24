@@ -85,6 +85,7 @@ type vconn struct {
 // EndPoint is can be a client or a server.
 type EndPoint struct {
 	protocol
+	manager      *link.Manager
 	recvChanSize int
 	session      *link.Session
 	lastActive   int64
@@ -95,7 +96,7 @@ type EndPoint struct {
 	connectChan  chan vconn
 	virtualConns *link.Uint32Channel
 	closeChan    chan struct{}
-	closeOnce    sync.Once
+	closeFlag    int32
 }
 
 func newEndPoint(pool slab.Pool, maxPacketSize, recvChanSize int) *EndPoint {
@@ -104,6 +105,7 @@ func newEndPoint(pool slab.Pool, maxPacketSize, recvChanSize int) *EndPoint {
 			pool:          pool,
 			maxPacketSize: maxPacketSize,
 		},
+		manager:      link.NewManager(),
 		recvChanSize: recvChanSize,
 		newConnChan:  make(chan uint32),
 		acceptChan:   make(chan vconn, 1),
@@ -143,12 +145,18 @@ func (p *EndPoint) Dial(remoteID uint32) (*link.Session, uint32, error) {
 	}
 }
 
+// GetSession get a virtual connection session by session ID.
+func (p *EndPoint) GetSession(sessionID uint64) *link.Session {
+	return p.manager.GetSession(sessionID)
+}
+
 // Close EndPoint.
 func (p *EndPoint) Close() {
-	p.closeOnce.Do(func() {
+	if atomic.CompareAndSwapInt32(&p.closeFlag, 0, 1) {
+		p.manager.Dispose()
 		p.session.Close()
 		close(p.closeChan)
-	})
+	}
 }
 
 func (p *EndPoint) keepalive(pingInterval, pingTimeout time.Duration, timeoutCallback func()) {
@@ -178,7 +186,7 @@ func (p *EndPoint) keepalive(pingInterval, pingTimeout time.Duration, timeoutCal
 
 func (p *EndPoint) addVirtualConn(connID, remoteID uint32, c chan vconn) {
 	codec := p.newVirtualCodec(p.session, connID, p.recvChanSize, &p.lastActive)
-	session := link.NewSession(codec, 0)
+	session := p.manager.NewSession(codec, 0)
 	p.virtualConns.Put(connID, session)
 	select {
 	case c <- vconn{session, connID, remoteID}:
