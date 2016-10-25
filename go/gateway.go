@@ -31,7 +31,7 @@ type Gateway struct {
 	servers [2]*link.Server
 
 	physicalConnID uint32
-	physicalConns  [connBuckets][2]*link.Uint32Channel
+	physicalConns  [connBuckets][2]*link.Channel
 
 	virtualConnID      uint32
 	virtualConns       [connBuckets]map[uint32][2]*link.Session
@@ -51,8 +51,8 @@ func NewGateway(pool slab.Pool, maxPacketSize int) *Gateway {
 	}
 
 	for i := 0; i < connBuckets; i++ {
-		gateway.physicalConns[i][0] = link.NewUint32Channel()
-		gateway.physicalConns[i][1] = link.NewUint32Channel()
+		gateway.physicalConns[i][0] = link.NewChannel()
+		gateway.physicalConns[i][1] = link.NewChannel()
 	}
 
 	return &gateway

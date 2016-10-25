@@ -104,7 +104,7 @@ type EndPoint struct {
 	dialMutex    sync.Mutex
 	acceptChan   chan *Conn
 	connectChan  chan *Conn
-	virtualConns *link.Uint32Channel
+	virtualConns *link.Channel
 	closeChan    chan struct{}
 	closeFlag    int32
 }
@@ -121,7 +121,7 @@ func newEndPoint(pool slab.Pool, maxPacketSize, recvChanSize int, format MsgForm
 		newConnChan:  make(chan uint32),
 		acceptChan:   make(chan *Conn, 1),
 		connectChan:  make(chan *Conn, 1000),
-		virtualConns: link.NewUint32Channel(),
+		virtualConns: link.NewChannel(),
 		closeChan:    make(chan struct{}),
 	}
 }
