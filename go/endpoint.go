@@ -231,7 +231,7 @@ func (p *EndPoint) keepalive(pingInterval, pingTimeout time.Duration, timeoutCal
 
 func (p *EndPoint) addVirtualConn(connID, remoteID uint32, c chan *Session) {
 	codec := p.newVirtualCodec(p.session, connID, p.recvChanSize, &p.lastActive)
-	session := &Session{link.NewSession(codec, 0), connID, remoteID}
+	session := &Session{link.NewSession(codec, 0), connID, remoteID, nil}
 	p.sessions[session.ID()] = session
 	session.AddCloseCallback(p, nil, func() {
 		delete(p.sessions, session.ID())
