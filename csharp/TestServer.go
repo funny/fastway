@@ -56,11 +56,11 @@ func main() {
 	defer server.Close()
 
 	for {
-		conn, connID, remoteID, err := server.Accept()
+		conn, err := server.Accept()
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("new connection: %d, %d", connID, remoteID)
+		log.Printf("new connection: %d, %d", conn.ConnID(), conn.RemoteID())
 
 		go func() {
 			defer conn.Close()
