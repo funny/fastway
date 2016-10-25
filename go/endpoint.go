@@ -80,6 +80,8 @@ type Session struct {
 	base     *link.Session
 	connID   uint32
 	remoteID uint32
+
+	State interface{}
 }
 
 func (s *Session) ID() uint64 {
