@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/funny/link"
 	"github.com/funny/utest"
 )
 
@@ -79,9 +78,7 @@ L:
 		runtime.Gosched()
 	}
 
-	var clientID uint32
-	var vconns [2][2]*link.Session
-	var connIDs [2][2]uint32
+	var vconns [2][2]*Session
 	var acceptChans = [2]chan int{
 		make(chan int),
 		make(chan int),
@@ -90,25 +87,25 @@ L:
 	go func() {
 		var err error
 
-		vconns[0][0], connIDs[0][0], clientID, err = server.Accept()
+		vconns[0][0], err = server.Accept()
 		utest.IsNilNow(t, err)
 		acceptChans[0] <- 1
 
-		vconns[1][0], connIDs[1][0], _, err = client.Accept()
+		vconns[1][0], err = client.Accept()
 		utest.IsNilNow(t, err)
 		acceptChans[1] <- 1
 	}()
 
-	vconns[0][1], connIDs[0][1], err = client.Dial(123)
+	vconns[0][1], err = client.Dial(123)
 	utest.IsNilNow(t, err)
 	<-acceptChans[0]
 
-	vconns[1][1], connIDs[1][1], err = server.Dial(clientID)
+	vconns[1][1], err = server.Dial(vconns[0][0].RemoteID())
 	utest.IsNilNow(t, err)
 	<-acceptChans[1]
 
-	utest.EqualNow(t, connIDs[0][0], connIDs[0][1])
-	utest.EqualNow(t, connIDs[1][0], connIDs[1][1])
+	utest.EqualNow(t, vconns[0][0].ConnID(), vconns[0][1].ConnID())
+	utest.EqualNow(t, vconns[1][0].ConnID(), vconns[1][1].ConnID())
 
 	for i := 0; i < 10000; i++ {
 		buffer1 := make([]byte, 1024)
@@ -119,12 +116,12 @@ L:
 		x := rand.Intn(2)
 		y := rand.Intn(2)
 
-		err := vconns[x][y].Send(&buffer1)
+		err := vconns[x][y].Send(buffer1)
 		utest.IsNilNow(t, err)
 
 		buffer2, err := vconns[x][(y+1)%2].Receive()
 		utest.IsNilNow(t, err)
-		utest.EqualNow(t, buffer1, *(buffer2.(*[]byte)))
+		utest.EqualNow(t, buffer1, buffer2)
 	}
 
 	vconns[0][0].Close()
@@ -184,7 +181,7 @@ L:
 
 	go func() {
 		for {
-			vconn, _, _, err := server.Accept()
+			vconn, err := server.Accept()
 			if err != nil {
 				return
 			}
@@ -210,8 +207,8 @@ L:
 		go func(n int) {
 			defer wg.Done()
 
-			var vconns *link.Session
-			vconns, _, errors[n] = client.Dial(123)
+			var vconns *Session
+			vconns, errors[n] = client.Dial(123)
 			if errors[n] != nil {
 				errorInfos[n] = "dial"
 				return
@@ -225,20 +222,20 @@ L:
 					buffer1[i] = byte(rand.Intn(256))
 				}
 
-				errors[n] = vconns.Send(&buffer1)
+				errors[n] = vconns.Send(buffer1)
 				if errors[n] != nil {
 					errorInfos[n] = "send"
 					return
 				}
 
-				var buffer2 interface{}
+				var buffer2 []byte
 				buffer2, errors[n] = vconns.Receive()
 				if errors[n] != nil {
 					errorInfos[n] = "receive"
 					return
 				}
 
-				utest.EqualNow(t, buffer1, *(buffer2.(*[]byte)))
+				utest.EqualNow(t, buffer1, buffer2)
 			}
 		}(i)
 	}
@@ -314,7 +311,7 @@ func Test_BadEndPoint(t *testing.T) {
 	// bad remote ID
 	client, err := DialClient("tcp", lsn1.Addr().String(), TestEndPointCfg)
 	utest.IsNilNow(t, err)
-	_, _, err = client.Dial(12345)
+	_, err = client.Dial(12345)
 	utest.NotNilNow(t, err)
 	utest.EqualNow(t, err, ErrRefused)
 

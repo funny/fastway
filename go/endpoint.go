@@ -76,24 +76,64 @@ func NewServer(conn net.Conn, cfg EndPointCfg) (*EndPoint, error) {
 	return ep, nil
 }
 
-type vconn struct {
-	Session  *link.Session
-	ConnID   uint32
-	RemoteID uint32
+type Session struct {
+	base     *link.Session
+	connID   uint32
+	remoteID uint32
+}
+
+func (s *Session) ID() uint64 {
+	return s.base.ID()
+}
+
+func (s *Session) ConnID() uint32 {
+	return s.connID
+}
+
+func (s *Session) RemoteID() uint32 {
+	return s.remoteID
+}
+
+func (s *Session) Receive() ([]byte, error) {
+	msg, err := s.base.Receive()
+	if err != nil {
+		return nil, err
+	}
+	return *(msg.(*[]byte)), nil
+}
+
+func (s *Session) Send(msg []byte) error {
+	return s.base.Send(&msg)
+}
+
+func (s *Session) IsClosed() bool {
+	return s.base.IsClosed()
+}
+
+func (s *Session) Close() error {
+	return s.base.Close()
+}
+
+func (s *Session) AddCloseCallback(handler, key interface{}, callback func()) {
+	s.base.AddCloseCallback(handler, key, callback)
+}
+
+func (s *Session) RemoveCloseCallback(handler, key interface{}) {
+	s.base.RemoveCloseCallback(handler, key)
 }
 
 // EndPoint is can be a client or a server.
 type EndPoint struct {
 	protocol
-	manager      *link.Manager
+	sessions     map[uint64]*Session
 	recvChanSize int
 	session      *link.Session
 	lastActive   int64
 	newConnMutex sync.Mutex
 	newConnChan  chan uint32
 	dialMutex    sync.Mutex
-	acceptChan   chan vconn
-	connectChan  chan vconn
+	acceptChan   chan *Session
+	connectChan  chan *Session
 	virtualConns *link.Uint32Channel
 	closeChan    chan struct{}
 	closeFlag    int32
@@ -105,55 +145,58 @@ func newEndPoint(pool slab.Pool, maxPacketSize, recvChanSize int) *EndPoint {
 			pool:          pool,
 			maxPacketSize: maxPacketSize,
 		},
-		manager:      link.NewManager(),
+		sessions:     make(map[uint64]*Session),
 		recvChanSize: recvChanSize,
 		newConnChan:  make(chan uint32),
-		acceptChan:   make(chan vconn, 1),
-		connectChan:  make(chan vconn, 1000),
+		acceptChan:   make(chan *Session, 1),
+		connectChan:  make(chan *Session, 1000),
 		virtualConns: link.NewUint32Channel(),
 		closeChan:    make(chan struct{}),
 	}
 }
 
 // Accept accept a virtual connection.
-func (p *EndPoint) Accept() (session *link.Session, connID, remoteID uint32, err error) {
+func (p *EndPoint) Accept() (*Session, error) {
 	select {
-	case conn := <-p.connectChan:
-		return conn.Session, conn.ConnID, conn.RemoteID, nil
+	case session := <-p.connectChan:
+		return session, nil
 	case <-p.closeChan:
-		return nil, 0, 0, io.EOF
+		return nil, io.EOF
 	}
 }
 
 // Dial create a virtual connection and dial to a remote EndPoint.
-func (p *EndPoint) Dial(remoteID uint32) (*link.Session, uint32, error) {
+func (p *EndPoint) Dial(remoteID uint32) (*Session, error) {
 	p.dialMutex.Lock()
 	defer p.dialMutex.Unlock()
 
 	if err := p.send(p.session, p.encodeDialCmd(remoteID)); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	select {
-	case conn := <-p.acceptChan:
-		if conn.Session == nil {
-			return nil, 0, ErrRefused
+	case session := <-p.acceptChan:
+		if session == nil {
+			return nil, ErrRefused
 		}
-		return conn.Session, conn.ConnID, nil
+		return session, nil
 	case <-p.closeChan:
-		return nil, 0, io.EOF
+		return nil, io.EOF
 	}
 }
 
 // GetSession get a virtual connection session by session ID.
-func (p *EndPoint) GetSession(sessionID uint64) *link.Session {
-	return p.manager.GetSession(sessionID)
+func (p *EndPoint) GetSession(sessionID uint64) *Session {
+	return p.sessions[sessionID]
 }
 
 // Close EndPoint.
 func (p *EndPoint) Close() {
 	if atomic.CompareAndSwapInt32(&p.closeFlag, 0, 1) {
-		p.manager.Dispose()
+		for _, session := range p.sessions {
+			session.RemoveCloseCallback(p, nil)
+			session.Close()
+		}
 		p.session.Close()
 		close(p.closeChan)
 	}
@@ -184,12 +227,16 @@ func (p *EndPoint) keepalive(pingInterval, pingTimeout time.Duration, timeoutCal
 	}
 }
 
-func (p *EndPoint) addVirtualConn(connID, remoteID uint32, c chan vconn) {
+func (p *EndPoint) addVirtualConn(connID, remoteID uint32, c chan *Session) {
 	codec := p.newVirtualCodec(p.session, connID, p.recvChanSize, &p.lastActive)
-	session := p.manager.NewSession(codec, 0)
-	p.virtualConns.Put(connID, session)
+	session := &Session{link.NewSession(codec, 0), connID, remoteID}
+	p.sessions[session.ID()] = session
+	session.AddCloseCallback(p, nil, func() {
+		delete(p.sessions, session.ID())
+	})
+	p.virtualConns.Put(connID, session.base)
 	select {
-	case c <- vconn{session, connID, remoteID}:
+	case c <- session:
 	case <-p.closeChan:
 	default:
 		p.send(p.session, p.encodeCloseCmd(connID))
@@ -242,10 +289,9 @@ func (p *EndPoint) processCmd(buf []byte) {
 		p.addVirtualConn(connID, remoteID, p.acceptChan)
 
 	case refuseCmd:
-		remoteID := p.decodeRefuseCmd(buf)
 		p.free(buf)
 		select {
-		case p.acceptChan <- vconn{nil, 0, remoteID}:
+		case p.acceptChan <- nil:
 		case <-p.closeChan:
 			return
 		}
