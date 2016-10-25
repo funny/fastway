@@ -40,6 +40,7 @@ var TestEndPointCfg = EndPointCfg{
 	PingInterval: TestPingInterval,
 	ServerID:     TestServerID,
 	AuthKey:      TestAuthKey,
+	MsgFormat:    &TestMsgFormat{},
 }
 
 func Test_Gateway(t *testing.T) {
@@ -78,7 +79,7 @@ L:
 		runtime.Gosched()
 	}
 
-	var vconns [2][2]*Session
+	var vconns [2][2]*Conn
 	var acceptChans = [2]chan int{
 		make(chan int),
 		make(chan int),
@@ -207,7 +208,7 @@ L:
 		go func(n int) {
 			defer wg.Done()
 
-			var vconns *Session
+			var vconns *Conn
 			vconns, errors[n] = client.Dial(123)
 			if errors[n] != nil {
 				errorInfos[n] = "dial"
@@ -228,14 +229,14 @@ L:
 					return
 				}
 
-				var buffer2 []byte
+				var buffer2 interface{}
 				buffer2, errors[n] = vconns.Receive()
 				if errors[n] != nil {
 					errorInfos[n] = "receive"
 					return
 				}
 
-				utest.EqualNow(t, buffer1, buffer2)
+				utest.EqualNow(t, buffer1, buffer2.([]byte))
 			}
 		}(i)
 	}

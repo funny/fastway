@@ -17,6 +17,20 @@ var TestAddr string
 var TestPool = slab.NewSyncPool(64, 64*1024, 2)
 var TestProto = protocol{TestPool, 2048}
 
+type TestMsgFormat struct{}
+
+func (f *TestMsgFormat) EncodeMessage(msg interface{}) ([]byte, error) {
+	buf := make([]byte, len(msg.([]byte)))
+	copy(buf, msg.([]byte))
+	return buf, nil
+}
+
+func (f *TestMsgFormat) DecodeMessage(msg []byte) (interface{}, error) {
+	buf := make([]byte, len(msg))
+	copy(buf, msg)
+	return buf, nil
+}
+
 func init() {
 	lsn, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -87,14 +101,14 @@ func Test_VirtualCodec(t *testing.T) {
 	pconn := link.NewSession(codec, 1000)
 
 	var lastActive int64
-	vcodec := TestProto.newVirtualCodec(pconn, 123, 1024, &lastActive)
+	vcodec := TestProto.newVirtualCodec(pconn, 123, 1024, &lastActive, &TestMsgFormat{})
 
 	for i := 0; i < 1000; i++ {
 		buffer1 := make([]byte, 1024)
 		for i := 0; i < len(buffer1); i++ {
 			buffer1[i] = byte(rand.Intn(256))
 		}
-		vcodec.Send(&buffer1)
+		vcodec.Send(buffer1)
 
 		msg, err := codec.Receive()
 		utest.IsNilNow(t, err)
@@ -106,7 +120,7 @@ func Test_VirtualCodec(t *testing.T) {
 
 		buffer3, err := vcodec.Receive()
 		utest.IsNilNow(t, err)
-		utest.EqualNow(t, buffer1, *(buffer3.(*[]byte)))
+		utest.EqualNow(t, buffer1, buffer3.([]byte))
 	}
 }
 
@@ -147,10 +161,10 @@ func Test_BadVirtualCodec(t *testing.T) {
 	pconn := link.NewSession(codec, 1000)
 
 	var lastActive int64
-	vcodec := TestProto.newVirtualCodec(pconn, 123, 1024, &lastActive)
+	vcodec := TestProto.newVirtualCodec(pconn, 123, 1024, &lastActive, &TestMsgFormat{})
 
 	bigMsg := make([]byte, TestProto.maxPacketSize+1)
-	err = vcodec.Send(&bigMsg)
+	err = vcodec.Send(bigMsg)
 	utest.NotNilNow(t, err)
 	utest.EqualNow(t, err, ErrTooLargePacket)
 

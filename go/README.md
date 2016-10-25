@@ -18,6 +18,7 @@
 client := proto.NewClient(
 	Conn, // 物理连接
 	fastway.EndPointCfg {
+		MsgFormat,       // 消息序列化格式
 		MemPool,         // 内存池
 		MaxPacket,       // 包体积限制
 		BufferSize,      // 预读所用的缓冲区大小
@@ -38,6 +39,7 @@ server, err := proto.DialServer(
 	fastway.EndPointCfg {
 		ServerID,        // 服务端ID
 		AuthKey,         // 身份验证用的Key
+		MsgFormat,       // 消息序列化格式
 		MemPool,         // 内存池
 		MaxPacket,       // 包体积限制
 		BufferSize,      // 预读所用的缓冲区大小
@@ -60,22 +62,6 @@ conn, err := client.Dial(ServerID)
 
 ```go
 conn, err := server.Accept()
-```
-
-调用示例5 - 以JSON格式发送一个消息：
-
-```go
-var msg MyMessage
-buf, err := json.Marshal(&msg)
-conn.Send(buf)
-```
-
-调用示例6 - 以JSON格式接收一个消息：
-
-```go
-var msg MyMessage
-buf, err := conn.Receive()
-json.Unmarshal(buf, &msg)
 ```
 
 注意事项：

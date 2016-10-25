@@ -83,6 +83,11 @@ func (c *codec) ClearSendChan(sendChan <-chan interface{}) {
 
 // ===========================================================================
 
+type MsgFormat interface {
+	DecodeMessage([]byte) (interface{}, error)
+	EncodeMessage(interface{}) ([]byte, error)
+}
+
 type virtualCodec struct {
 	*protocol
 	physicalConn *link.Session
@@ -90,15 +95,17 @@ type virtualCodec struct {
 	recvChan     chan []byte
 	closeOnce    sync.Once
 	lastActive   *int64
+	format       MsgFormat
 }
 
-func (p *protocol) newVirtualCodec(physicalConn *link.Session, connID uint32, recvChanSize int, lastActive *int64) *virtualCodec {
+func (p *protocol) newVirtualCodec(physicalConn *link.Session, connID uint32, recvChanSize int, lastActive *int64, format MsgFormat) *virtualCodec {
 	return &virtualCodec{
 		protocol:     p,
 		connID:       connID,
 		physicalConn: physicalConn,
 		recvChan:     make(chan []byte, recvChanSize),
 		lastActive:   lastActive,
+		format:       format,
 	}
 }
 
@@ -107,22 +114,25 @@ func (c *virtualCodec) Receive() (interface{}, error) {
 	if !ok {
 		return nil, io.EOF
 	}
-	msg := make([]byte, len(buf[cmdConnID+cmdIDSize:]))
-	copy(msg, buf[cmdConnID+cmdIDSize:])
-	c.free(buf)
-	return &msg, nil
+	defer c.free(buf)
+	return c.format.DecodeMessage(buf[cmdConnID+cmdIDSize:])
 }
 
 func (c *virtualCodec) Send(msg interface{}) error {
-	msg2 := *(msg.(*[]byte))
+	msg2, err := c.format.EncodeMessage(msg)
+	if err != nil {
+		return err
+	}
+
 	if len(msg2) > c.maxPacketSize {
 		return ErrTooLargePacket
 	}
+
 	buf := c.alloc(SizeofLen + cmdIDSize + len(msg2))
 	copy(buf[cmdConnID+cmdIDSize:], msg2)
 	binary.LittleEndian.PutUint32(buf, uint32(cmdIDSize+len(msg2)))
 	binary.LittleEndian.PutUint32(buf[cmdConnID:], c.connID)
-	err := c.send(c.physicalConn, buf)
+	err = c.send(c.physicalConn, buf)
 	if err != nil {
 		atomic.StoreInt64(c.lastActive, time.Now().Unix())
 	}

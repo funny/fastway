@@ -31,6 +31,7 @@ type EndPointCfg struct {
 	TimeoutCallback func()
 	ServerID        uint32
 	AuthKey         string
+	MsgFormat       MsgFormat
 }
 
 // DialClient dial to gateway and return a client EndPoint.
@@ -56,7 +57,7 @@ func DialServer(network, addr string, cfg EndPointCfg) (*EndPoint, error) {
 // NewClient dial to gateway and return a client EndPoint.
 // conn is the physical connection.
 func NewClient(conn net.Conn, cfg EndPointCfg) (*EndPoint, error) {
-	ep := newEndPoint(cfg.MemPool, cfg.MaxPacket, cfg.RecvChanSize)
+	ep := newEndPoint(cfg.MemPool, cfg.MaxPacket, cfg.RecvChanSize, cfg.MsgFormat)
 	ep.session = link.NewSession(ep.newCodec(0, conn, cfg.BufferSize), cfg.SendChanSize)
 	go ep.loop()
 	go ep.keepalive(cfg.PingInterval, cfg.PingTimeout, cfg.TimeoutCallback)
@@ -66,7 +67,7 @@ func NewClient(conn net.Conn, cfg EndPointCfg) (*EndPoint, error) {
 // NewServer dial to gateway and return a server EndPoint.
 // conn is the physical connection.
 func NewServer(conn net.Conn, cfg EndPointCfg) (*EndPoint, error) {
-	ep := newEndPoint(cfg.MemPool, cfg.MaxPacket, cfg.RecvChanSize)
+	ep := newEndPoint(cfg.MemPool, cfg.MaxPacket, cfg.RecvChanSize, cfg.MsgFormat)
 	if err := ep.serverInit(conn, cfg.ServerID, []byte(cfg.AuthKey)); err != nil {
 		return nil, err
 	}
@@ -76,99 +77,67 @@ func NewServer(conn net.Conn, cfg EndPointCfg) (*EndPoint, error) {
 	return ep, nil
 }
 
-type Session struct {
-	base     *link.Session
+type Conn struct {
+	*link.Session
 	connID   uint32
 	remoteID uint32
-
-	State interface{}
 }
 
-func (s *Session) ID() uint64 {
-	return s.base.ID()
+func (c *Conn) ConnID() uint32 {
+	return c.connID
 }
 
-func (s *Session) ConnID() uint32 {
-	return s.connID
-}
-
-func (s *Session) RemoteID() uint32 {
-	return s.remoteID
-}
-
-func (s *Session) Receive() ([]byte, error) {
-	msg, err := s.base.Receive()
-	if err != nil {
-		return nil, err
-	}
-	return *(msg.(*[]byte)), nil
-}
-
-func (s *Session) Send(msg []byte) error {
-	return s.base.Send(&msg)
-}
-
-func (s *Session) IsClosed() bool {
-	return s.base.IsClosed()
-}
-
-func (s *Session) Close() error {
-	return s.base.Close()
-}
-
-func (s *Session) AddCloseCallback(handler, key interface{}, callback func()) {
-	s.base.AddCloseCallback(handler, key, callback)
-}
-
-func (s *Session) RemoveCloseCallback(handler, key interface{}) {
-	s.base.RemoveCloseCallback(handler, key)
+func (c *Conn) RemoteID() uint32 {
+	return c.remoteID
 }
 
 // EndPoint is can be a client or a server.
 type EndPoint struct {
 	protocol
-	sessions     map[uint64]*Session
+	format       MsgFormat
+	manager      *link.Manager
 	recvChanSize int
 	session      *link.Session
 	lastActive   int64
 	newConnMutex sync.Mutex
 	newConnChan  chan uint32
 	dialMutex    sync.Mutex
-	acceptChan   chan *Session
-	connectChan  chan *Session
+	acceptChan   chan *Conn
+	connectChan  chan *Conn
 	virtualConns *link.Uint32Channel
 	closeChan    chan struct{}
 	closeFlag    int32
 }
 
-func newEndPoint(pool slab.Pool, maxPacketSize, recvChanSize int) *EndPoint {
+func newEndPoint(pool slab.Pool, maxPacketSize, recvChanSize int, format MsgFormat) *EndPoint {
 	return &EndPoint{
 		protocol: protocol{
 			pool:          pool,
 			maxPacketSize: maxPacketSize,
 		},
-		sessions:     make(map[uint64]*Session),
+		format:       format,
+		manager:      link.NewManager(),
 		recvChanSize: recvChanSize,
 		newConnChan:  make(chan uint32),
-		acceptChan:   make(chan *Session, 1),
-		connectChan:  make(chan *Session, 1000),
+		acceptChan:   make(chan *Conn, 1),
+		connectChan:  make(chan *Conn, 1000),
 		virtualConns: link.NewUint32Channel(),
 		closeChan:    make(chan struct{}),
 	}
 }
 
 // Accept accept a virtual connection.
-func (p *EndPoint) Accept() (*Session, error) {
+func (p *EndPoint) Accept() (*Conn, error) {
 	select {
-	case session := <-p.connectChan:
-		return session, nil
+	case conn := <-p.connectChan:
+		return conn, nil
 	case <-p.closeChan:
 		return nil, io.EOF
 	}
 }
 
 // Dial create a virtual connection and dial to a remote EndPoint.
-func (p *EndPoint) Dial(remoteID uint32) (*Session, error) {
+func (p *EndPoint) Dial(remoteID uint32) (*Conn, error) {
 	p.dialMutex.Lock()
 	defer p.dialMutex.Unlock()
 
@@ -177,28 +146,25 @@ func (p *EndPoint) Dial(remoteID uint32) (*Session, error) {
 	}
 
 	select {
-	case session := <-p.acceptChan:
-		if session == nil {
+	case conn := <-p.acceptChan:
+		if conn == nil {
 			return nil, ErrRefused
 		}
-		return session, nil
+		return conn, nil
 	case <-p.closeChan:
 		return nil, io.EOF
 	}
 }
 
 // GetSession get a virtual connection session by session ID.
-func (p *EndPoint) GetSession(sessionID uint64) *Session {
-	return p.sessions[sessionID]
+func (p *EndPoint) GetSession(sessionID uint64) *link.Session {
+	return p.manager.GetSession(sessionID)
 }
 
 // Close EndPoint.
 func (p *EndPoint) Close() {
 	if atomic.CompareAndSwapInt32(&p.closeFlag, 0, 1) {
-		for _, session := range p.sessions {
-			session.RemoveCloseCallback(p, nil)
-			session.Close()
-		}
+		p.manager.Dispose()
 		p.session.Close()
 		close(p.closeChan)
 	}
@@ -229,16 +195,12 @@ func (p *EndPoint) keepalive(pingInterval, pingTimeout time.Duration, timeoutCal
 	}
 }
 
-func (p *EndPoint) addVirtualConn(connID, remoteID uint32, c chan *Session) {
-	codec := p.newVirtualCodec(p.session, connID, p.recvChanSize, &p.lastActive)
-	session := &Session{link.NewSession(codec, 0), connID, remoteID, nil}
-	p.sessions[session.ID()] = session
-	session.AddCloseCallback(p, nil, func() {
-		delete(p.sessions, session.ID())
-	})
-	p.virtualConns.Put(connID, session.base)
+func (p *EndPoint) addVirtualConn(connID, remoteID uint32, c chan *Conn) {
+	codec := p.newVirtualCodec(p.session, connID, p.recvChanSize, &p.lastActive, p.format)
+	session := p.manager.NewSession(codec, 0)
+	p.virtualConns.Put(connID, session)
 	select {
-	case c <- session:
+	case c <- &Conn{session, connID, remoteID}:
 	case <-p.closeChan:
 	default:
 		p.send(p.session, p.encodeCloseCmd(connID))
