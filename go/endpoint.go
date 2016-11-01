@@ -41,7 +41,7 @@ func DialClient(network, addr string, cfg EndPointCfg) (*EndPoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewClient(conn, cfg)
+	return NewClient(conn, cfg), nil
 }
 
 // DialServer dial to gateway and return a server EndPoint.
@@ -56,12 +56,12 @@ func DialServer(network, addr string, cfg EndPointCfg) (*EndPoint, error) {
 
 // NewClient dial to gateway and return a client EndPoint.
 // conn is the physical connection.
-func NewClient(conn net.Conn, cfg EndPointCfg) (*EndPoint, error) {
+func NewClient(conn net.Conn, cfg EndPointCfg) *EndPoint {
 	ep := newEndPoint(cfg.MemPool, cfg.MaxPacket, cfg.RecvChanSize, cfg.MsgFormat)
 	ep.session = link.NewSession(ep.newCodec(0, conn, cfg.BufferSize), cfg.SendChanSize)
 	go ep.loop()
 	go ep.keepalive(cfg.PingInterval, cfg.PingTimeout, cfg.TimeoutCallback)
-	return ep, nil
+	return ep
 }
 
 // NewServer dial to gateway and return a server EndPoint.
