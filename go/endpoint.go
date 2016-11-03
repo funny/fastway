@@ -44,16 +44,6 @@ func DialClient(network, addr string, cfg EndPointCfg) (*EndPoint, error) {
 	return NewClient(conn, cfg), nil
 }
 
-// DialServer dial to gateway and return a server EndPoint.
-// addr is the gateway address.
-func DialServer(network, addr string, cfg EndPointCfg) (*EndPoint, error) {
-	conn, err := net.Dial(network, addr)
-	if err != nil {
-		return nil, err
-	}
-	return NewServer(conn, cfg)
-}
-
 // NewClient dial to gateway and return a client EndPoint.
 // conn is the physical connection.
 func NewClient(conn net.Conn, cfg EndPointCfg) *EndPoint {
@@ -77,17 +67,26 @@ func NewServer(conn net.Conn, cfg EndPointCfg) (*EndPoint, error) {
 	return ep, nil
 }
 
-type Conn struct {
-	*link.Session
+// DialServer dial to gateway and return a server EndPoint.
+// addr is the gateway address.
+func DialServer(network, addr string, cfg EndPointCfg) (*EndPoint, error) {
+	conn, err := net.Dial(network, addr)
+	if err != nil {
+		return nil, err
+	}
+	return NewServer(conn, cfg)
+}
+
+type ConnInfo struct {
 	connID   uint32
 	remoteID uint32
 }
 
-func (c *Conn) ConnID() uint32 {
+func (c *ConnInfo) ConnID() uint32 {
 	return c.connID
 }
 
-func (c *Conn) RemoteID() uint32 {
+func (c *ConnInfo) RemoteID() uint32 {
 	return c.remoteID
 }
 
@@ -102,8 +101,8 @@ type EndPoint struct {
 	newConnMutex sync.Mutex
 	newConnChan  chan uint32
 	dialMutex    sync.Mutex
-	acceptChan   chan *Conn
-	connectChan  chan *Conn
+	acceptChan   chan *link.Session
+	connectChan  chan *link.Session
 	virtualConns *link.Channel
 	closeChan    chan struct{}
 	closeFlag    int32
@@ -119,15 +118,15 @@ func newEndPoint(pool slab.Pool, maxPacketSize, recvChanSize int, format MsgForm
 		manager:      link.NewManager(),
 		recvChanSize: recvChanSize,
 		newConnChan:  make(chan uint32),
-		acceptChan:   make(chan *Conn, 1),
-		connectChan:  make(chan *Conn, 1000),
+		acceptChan:   make(chan *link.Session, 1),
+		connectChan:  make(chan *link.Session, 1000),
 		virtualConns: link.NewChannel(),
 		closeChan:    make(chan struct{}),
 	}
 }
 
 // Accept accept a virtual connection.
-func (p *EndPoint) Accept() (*Conn, error) {
+func (p *EndPoint) Accept() (*link.Session, error) {
 	select {
 	case conn := <-p.connectChan:
 		return conn, nil
@@ -137,7 +136,7 @@ func (p *EndPoint) Accept() (*Conn, error) {
 }
 
 // Dial create a virtual connection and dial to a remote EndPoint.
-func (p *EndPoint) Dial(remoteID uint32) (*Conn, error) {
+func (p *EndPoint) Dial(remoteID uint32) (*link.Session, error) {
 	p.dialMutex.Lock()
 	defer p.dialMutex.Unlock()
 
@@ -195,12 +194,13 @@ func (p *EndPoint) keepalive(pingInterval, pingTimeout time.Duration, timeoutCal
 	}
 }
 
-func (p *EndPoint) addVirtualConn(connID, remoteID uint32, c chan *Conn) {
+func (p *EndPoint) addVirtualConn(connID, remoteID uint32, c chan *link.Session) {
 	codec := p.newVirtualCodec(p.session, connID, p.recvChanSize, &p.lastActive, p.format)
 	session := p.manager.NewSession(codec, 0)
 	p.virtualConns.Put(connID, session)
+	session.State = &ConnInfo{connID, remoteID}
 	select {
-	case c <- &Conn{session, connID, remoteID}:
+	case c <- session:
 	case <-p.closeChan:
 	default:
 		p.send(p.session, p.encodeCloseCmd(connID))
@@ -211,7 +211,7 @@ func (p *EndPoint) loop() {
 	defer func() {
 		p.Close()
 		if err := recover(); err != nil {
-			log.Printf("fast/gateway.EndPoint panic: %v\n%s", err, debug.Stack())
+			log.Printf("fastway.EndPoint: PANIC - %v\n%s", err, debug.Stack())
 		}
 	}()
 	for {

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/funny/link"
 	"github.com/funny/utest"
 )
 
@@ -79,7 +80,7 @@ L:
 		runtime.Gosched()
 	}
 
-	var vconns [2][2]*Conn
+	var vconns [2][2]*link.Session
 	var acceptChans = [2]chan int{
 		make(chan int),
 		make(chan int),
@@ -101,12 +102,12 @@ L:
 	utest.IsNilNow(t, err)
 	<-acceptChans[0]
 
-	vconns[1][1], err = server.Dial(vconns[0][0].RemoteID())
+	vconns[1][1], err = server.Dial(vconns[0][0].State.(*ConnInfo).RemoteID())
 	utest.IsNilNow(t, err)
 	<-acceptChans[1]
 
-	utest.EqualNow(t, vconns[0][0].ConnID(), vconns[0][1].ConnID())
-	utest.EqualNow(t, vconns[1][0].ConnID(), vconns[1][1].ConnID())
+	utest.EqualNow(t, vconns[0][0].State.(*ConnInfo).ConnID(), vconns[0][1].State.(*ConnInfo).ConnID())
+	utest.EqualNow(t, vconns[1][0].State.(*ConnInfo).ConnID(), vconns[1][1].State.(*ConnInfo).ConnID())
 
 	for i := 0; i < 10000; i++ {
 		buffer1 := make([]byte, 1024)
@@ -208,7 +209,7 @@ L:
 		go func(n int) {
 			defer wg.Done()
 
-			var vconns *Conn
+			var vconns *link.Session
 			vconns, errors[n] = client.Dial(123)
 			if errors[n] != nil {
 				errorInfos[n] = "dial"

@@ -4,7 +4,6 @@ go:
   - 1.7
 
 install:
-    - go get github.com/mattn/goveralls
     - go get -t -v ./...
 
 script:
@@ -12,7 +11,8 @@ script:
     - go vet -x github.com/funny/fastway/go
     - go install
     - go install github.com/funny/fastway/go
-    - go test -race -coverprofile=coverage.txt -covermode=atomic -v github.com/funny/fastway/go
+    - go test -v -race github.com/funny/fastway/go
+    - go test -v -coverprofile=coverage.txt -covermode=atomic github.com/funny/fastway/go
 
 after_success:
     - bash <(curl -s https://codecov.io/bash)

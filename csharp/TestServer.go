@@ -56,23 +56,24 @@ func main() {
 	defer server.Close()
 
 	for {
-		conn, err := server.Accept()
+		session, err := server.Accept()
 		if err != nil {
 			log.Fatal(err)
 		}
+		conn := session.State.(*fastway.ConnInfo)
 		log.Printf("new connection: %d, %d", conn.ConnID(), conn.RemoteID())
 
 		go func() {
-			defer conn.Close()
+			defer session.Close()
 
 			for {
-				msg, err := conn.Receive()
+				msg, err := session.Receive()
 				if err != nil {
 					log.Printf("receive failed: %v", err)
 					return
 				}
 
-				err = conn.Send(msg)
+				err = session.Send(msg)
 				if err != nil {
 					log.Printf("receive failed: %v", err)
 					return
