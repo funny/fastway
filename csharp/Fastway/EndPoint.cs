@@ -149,6 +149,24 @@ namespace Fastway
 			}
 		}
 
+		public void StopKeepAliveTimer()
+		{
+			this.keepAliveTimer.Stop ();
+		}
+
+		public void StartKeepAliveTimer()
+		{
+			this.keepAliveTimer.Start ();
+		}
+
+		public DateTime LastActive {
+			get {
+				lock (this) {
+					return this.lastActive;
+				}
+			}
+		}
+
 		internal void Send (uint connID, byte[] msg)
 		{
 			using (MemoryStream ms = new MemoryStream ()) {
@@ -384,14 +402,6 @@ namespace Fastway
 				this.s.BeginWrite (buf, 0, length, null, null);
 			} catch {
 				this.Close ();
-			}
-		}
-
-		private DateTime LastActive {
-			get {
-				lock (this) {
-					return this.lastActive;
-				}
 			}
 		}
 
