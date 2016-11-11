@@ -9,6 +9,20 @@ import (
 	"github.com/funny/slab"
 )
 
+type TestMsgFormat struct{}
+
+func (f *TestMsgFormat) EncodeMessage(msg interface{}) ([]byte, error) {
+	buf := make([]byte, len(msg.([]byte)))
+	copy(buf, msg.([]byte))
+	return buf, nil
+}
+
+func (f *TestMsgFormat) DecodeMessage(msg []byte) (interface{}, error) {
+	buf := make([]byte, len(msg))
+	copy(buf, msg)
+	return buf, nil
+}
+
 func main() {
 	lsn1, err := net.Listen("tcp", "127.0.0.1:10010")
 	if err != nil {
@@ -48,6 +62,7 @@ func main() {
 			SendChanSize: 10000,
 			RecvChanSize: 10000,
 			PingInterval: time.Second,
+			MsgFormat:    &TestMsgFormat{},
 		},
 	)
 	if err != nil {

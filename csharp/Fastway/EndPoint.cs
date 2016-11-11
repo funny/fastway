@@ -75,11 +75,15 @@ namespace Fastway
 	public class EndPoint
 	{
 		private Stream s;
+		private byte[] headBuf;
+		private int headReaded;
+		private int bodyReaded;
+
 		private DateTime lastActive;
 		private System.Timers.Timer keepAliveTimer;
 		private System.Timers.Timer pingWatchTimer;
+
 		private bool closed;
-		private byte[] headBuf;
 		private Queue<Conn> waitAccept;
 		private Dictionary<uint /* remote id */, List<Conn>> dialWait;
 		private Dictionary<uint /* conn id */, Conn> connections;
@@ -214,11 +218,29 @@ namespace Fastway
 		private void ReadHead ()
 		{
 			try {
-				this.s.BeginRead (headBuf, 0, 8, (IAsyncResult result) => {
-					if (!result.IsCompleted || this.s.EndRead (result) != headBuf.Length) {
-						this.Close ();
+				this.s.BeginRead (headBuf, headReaded, headBuf.Length - headReaded, (IAsyncResult result) => {
+					int readed;
+
+					try {
+						readed = this.s.EndRead (result);
+					} catch {
+						this.Close();
 						return;
 					}
+
+					if (readed == 0) {
+						this.Close();
+						return;
+					}
+
+					headReaded += readed;
+
+					if (headReaded != headBuf.Length) {
+						this.ReadHead();
+						return;
+					}
+
+					headReaded = 0;
 				
 					int length;
 					uint connID;
@@ -234,29 +256,45 @@ namespace Fastway
 						return;
 					}
 
-					this.ReadBody (length - 4, connID);
+					byte[] buf = new byte[length - 4];
+					this.ReadBody (buf, connID);
 				}, null);
 			} catch {
 				this.Close ();
 			}
 		}
 
-		private void ReadBody (int length, uint connID)
+		private void ReadBody (byte[] buf, uint connID)
 		{
 			try {
-				byte[] buf = new byte[length];
-				this.s.BeginRead (buf, 0, length, (IAsyncResult result) => {
-					byte[] body = (byte[])result.AsyncState;
+				this.s.BeginRead (buf, bodyReaded, buf.Length - bodyReaded, (IAsyncResult result) => {
+					int readed;
 
-					if (!result.IsCompleted || this.s.EndRead (result) != body.Length) {
-						this.Close ();
+					try {
+						readed = this.s.EndRead (result);
+					} catch {
+						this.Close();
+						return;
+					}
+						
+					if (readed == 0) {
+						this.Close();
 						return;
 					}
 
-					this.HandleMessage (connID, body);
+					bodyReaded += readed;
+
+					if (bodyReaded != buf.Length) {
+						this.ReadBody(buf, connID);
+						return;
+					}
+
+					bodyReaded = 0;
+
+					this.HandleMessage (connID, buf);
 
 					this.ReadHead ();
-				}, buf);
+				}, null);
 			} catch {
 				this.Close ();
 			}

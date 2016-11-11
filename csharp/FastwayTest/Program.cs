@@ -13,14 +13,23 @@ namespace FastwayTest
 			var netStream = tcpClient.GetStream ();
 			var endPoint = new EndPoint (netStream, 1000, 0, null);
 			var conn = endPoint.Dial (10086);
-			var random = new Random ();
 
 			Thread.Sleep (1000 * 5);
 
-			for (var i = 0; i < 100000; i++) {
-				var n = random.Next (10, 2000);
+			test(conn, 100000, 10, 2000);
+			test(conn, 100, 128000, 256000);
+
+			conn.Close ();
+			Console.WriteLine ("pass");
+		}
+
+		static void test(Conn conn, int times, int min, int max) {
+			var random = new Random ();
+
+			for (var i = 0; i < times; i++) {
+				var n = random.Next (min, max);
 				var msg1 = new byte[n];
-				random.NextBytes(msg1);
+				random.NextBytes (msg1);
 
 				if (!conn.Send (msg1)) {
 					Console.WriteLine ("send failed");
@@ -54,9 +63,6 @@ namespace FastwayTest
 
 				Console.WriteLine ("{0}, {1}", i, msg1.Length);
 			}
-
-			conn.Close ();
-			Console.WriteLine ("pass");
 		}
 	}
 }
