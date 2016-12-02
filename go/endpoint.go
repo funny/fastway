@@ -28,7 +28,7 @@ type EndPointCfg struct {
 	RecvChanSize    int
 	PingInterval    time.Duration
 	PingTimeout     time.Duration
-	TimeoutCallback func()
+	TimeoutCallback func() bool
 	ServerID        uint32
 	AuthKey         string
 	MsgFormat       MsgFormat
@@ -169,24 +169,24 @@ func (p *EndPoint) Close() {
 	}
 }
 
-func (p *EndPoint) keepalive(pingInterval, pingTimeout time.Duration, timeoutCallback func()) {
+func (p *EndPoint) keepalive(pingInterval, pingTimeout time.Duration, timeoutCallback func() bool) {
 	for {
 		select {
 		case <-EndPointTimer.After(pingInterval):
-			if time.Duration(atomic.LoadInt64(&p.lastActive)) >= pingInterval {
+			if time.Duration(time.Now().UnixNano()-atomic.LoadInt64(&p.lastActive)) >= pingInterval {
 				if p.send(p.session, p.encodePingCmd()) != nil {
 					return
 				}
 			}
-			if timeoutCallback != nil {
-				select {
-				case <-EndPointTimer.After(pingTimeout):
-					if time.Duration(atomic.LoadInt64(&p.lastActive)) >= pingTimeout {
-						timeoutCallback()
+			select {
+			case <-EndPointTimer.After(pingTimeout):
+				if time.Duration(time.Now().UnixNano()-atomic.LoadInt64(&p.lastActive)) >= pingTimeout {
+					if timeoutCallback == nil || !timeoutCallback() {
+						return
 					}
-				case <-p.closeChan:
-					return
 				}
+			case <-p.closeChan:
+				return
 			}
 		case <-p.closeChan:
 			return

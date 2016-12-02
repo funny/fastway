@@ -153,8 +153,8 @@ type gwState struct {
 	virtualConns map[uint32]struct{}
 }
 
-func (g *Gateway) newSessionState(id uint32, session *link.Session, idleTimeout time.Duration) *gwState {
-	gs := &gwState{
+func (g *Gateway) newSessionState(id uint32, session *link.Session) *gwState {
+	return &gwState{
 		id:           id,
 		session:      session,
 		gateway:      g,
@@ -163,8 +163,6 @@ func (g *Gateway) newSessionState(id uint32, session *link.Session, idleTimeout 
 		disposeChan:  make(chan struct{}),
 		virtualConns: make(map[uint32]struct{}),
 	}
-	go gs.watcher(session, idleTimeout)
-	return gs
 }
 
 func (gs *gwState) Dispose() {
@@ -183,25 +181,9 @@ func (gs *gwState) Dispose() {
 	})
 }
 
-func (gs *gwState) watcher(session *link.Session, idleTimeout time.Duration) {
-L:
-	for {
-		select {
-		case <-gs.pingChan:
-		case <-gs.gateway.timer.After(idleTimeout):
-			if time.Since(time.Unix(atomic.LoadInt64(&gs.lastActive), 0)) >= idleTimeout {
-				break L
-			}
-		case <-gs.disposeChan:
-			break L
-		}
-	}
-	gs.Dispose()
-}
-
 func (g *Gateway) handleSession(session *link.Session, side, maxConn int, idleTimeout time.Duration) {
 	id := session.Codec().(*codec).id
-	state := g.newSessionState(id, session, idleTimeout)
+	state := g.newSessionState(id, session)
 	session.State = state
 	g.addPhysicalConn(id, side, session)
 
@@ -216,7 +198,12 @@ func (g *Gateway) handleSession(session *link.Session, side, maxConn int, idleTi
 	otherSide := (side + 1) % 2
 
 	for {
-		atomic.StoreInt64(&state.lastActive, time.Now().Unix())
+		if idleTimeout > 0 {
+			err := session.Codec().(*codec).conn.SetReadDeadline(time.Now().Add(idleTimeout))
+			if err != nil {
+				return
+			}
+		}
 
 		buf, err := session.Receive()
 		if err != nil {
