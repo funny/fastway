@@ -250,7 +250,6 @@ func (g *Gateway) processCmd(msg []byte, session *link.Session, state *gwState, 
 		g.closeVirtualConn(connID)
 
 	case pingCmd:
-		state.pingChan <- struct{}{}
 		g.free(msg)
 		g.send(session, g.encodePingCmd())
 

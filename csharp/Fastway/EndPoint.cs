@@ -485,11 +485,9 @@ namespace Fastway
 
 			this.keepAliveTimer = new System.Timers.Timer (pingInterval);
 			this.keepAliveTimer.Elapsed += (sender, e) => {
-				if (DateTime.Now.Subtract (LastActive).TotalMilliseconds >= pingInterval) {
-					this.keepAliveTimer.Stop ();
-					this.pingWatchTimer.Start ();
-					Ping ();
-				}
+				this.keepAliveTimer.Stop ();
+				this.pingWatchTimer.Start ();
+				Ping ();
 			};
 			this.keepAliveTimer.Start ();
 		}

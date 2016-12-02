@@ -62,6 +62,7 @@ func main() {
 			SendChanSize: 10000,
 			RecvChanSize: 10000,
 			PingInterval: time.Second,
+			PingTimeout:  time.Second,
 			MsgFormat:    &TestMsgFormat{},
 		},
 	)
@@ -90,7 +91,7 @@ func main() {
 
 				err = session.Send(msg)
 				if err != nil {
-					log.Printf("receive failed: %v", err)
+					log.Printf("send failed: %v", err)
 					return
 				}
 			}

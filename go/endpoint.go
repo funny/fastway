@@ -48,9 +48,21 @@ func DialClient(network, addr string, cfg EndPointCfg) (*EndPoint, error) {
 // conn is the physical connection.
 func NewClient(conn net.Conn, cfg EndPointCfg) *EndPoint {
 	ep := newEndPoint(cfg.MemPool, cfg.MaxPacket, cfg.RecvChanSize, cfg.MsgFormat)
+
 	ep.session = link.NewSession(ep.newCodec(0, conn, cfg.BufferSize), cfg.SendChanSize)
+
 	go ep.loop()
-	go ep.keepalive(cfg.PingInterval, cfg.PingTimeout, cfg.TimeoutCallback)
+
+	if cfg.PingInterval != 0 {
+		if cfg.PingInterval > 1800*time.Second {
+			panic("fastway.NewClient(): PingInterval > 1800 seconds")
+		}
+		if cfg.PingTimeout == 0 {
+			panic("fastway.NewClient(): PingInterval != 0 but PingTimeout == 0")
+		}
+		go ep.keepalive(cfg.PingInterval, cfg.PingTimeout, cfg.TimeoutCallback)
+	}
+
 	return ep
 }
 
@@ -58,12 +70,24 @@ func NewClient(conn net.Conn, cfg EndPointCfg) *EndPoint {
 // conn is the physical connection.
 func NewServer(conn net.Conn, cfg EndPointCfg) (*EndPoint, error) {
 	ep := newEndPoint(cfg.MemPool, cfg.MaxPacket, cfg.RecvChanSize, cfg.MsgFormat)
+
 	if err := ep.serverInit(conn, cfg.ServerID, []byte(cfg.AuthKey)); err != nil {
 		return nil, err
 	}
+
 	ep.session = link.NewSession(ep.newCodec(0, conn, cfg.BufferSize), cfg.SendChanSize)
 	go ep.loop()
-	go ep.keepalive(cfg.PingInterval, cfg.PingTimeout, cfg.TimeoutCallback)
+
+	if cfg.PingInterval != 0 {
+		if cfg.PingInterval > 1800*time.Second {
+			panic("fastway.NewClient(): PingInterval > 1800 seconds")
+		}
+		if cfg.PingTimeout == 0 {
+			panic("fastway.NewServer(): PingInterval != 0 but PingTimeout == 0")
+		}
+		go ep.keepalive(cfg.PingInterval, cfg.PingTimeout, cfg.TimeoutCallback)
+	}
+
 	return ep, nil
 }
 
@@ -104,6 +128,7 @@ type EndPoint struct {
 	acceptChan   chan *link.Session
 	connectChan  chan *link.Session
 	virtualConns *link.Channel
+	pingChan     chan struct{}
 	closeChan    chan struct{}
 	closeFlag    int32
 }
@@ -170,20 +195,18 @@ func (p *EndPoint) Close() {
 }
 
 func (p *EndPoint) keepalive(pingInterval, pingTimeout time.Duration, timeoutCallback func() bool) {
+	p.pingChan = make(chan struct{})
 	for {
 		select {
 		case <-EndPointTimer.After(pingInterval):
-			if time.Duration(time.Now().UnixNano()-atomic.LoadInt64(&p.lastActive)) >= pingInterval {
-				if p.send(p.session, p.encodePingCmd()) != nil {
-					return
-				}
+			if p.send(p.session, p.encodePingCmd()) != nil {
+				return
 			}
 			select {
+			case <-p.pingChan:
 			case <-EndPointTimer.After(pingTimeout):
-				if time.Duration(time.Now().UnixNano()-atomic.LoadInt64(&p.lastActive)) >= pingTimeout {
-					if timeoutCallback == nil || !timeoutCallback() {
-						return
-					}
+				if timeoutCallback == nil || !timeoutCallback() {
+					return
 				}
 			case <-p.closeChan:
 				return
@@ -274,6 +297,7 @@ func (p *EndPoint) processCmd(buf []byte) {
 		}
 
 	case pingCmd:
+		p.pingChan <- struct{}{}
 		p.free(buf)
 
 	default:
