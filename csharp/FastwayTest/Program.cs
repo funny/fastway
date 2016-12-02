@@ -11,10 +11,10 @@ namespace FastwayTest
 		{
 			var tcpClient = new TcpClient ("127.0.0.1", 10010);
 			var netStream = tcpClient.GetStream ();
-			var endPoint = new EndPoint (netStream, 1000, 0, null);
+			var endPoint = new EndPoint (netStream, 1000, 500, () => { Console.WriteLine("Ping Timeout"); });
 			var conn = endPoint.Dial (10086);
 
-			Thread.Sleep (1000 * 5);
+			Thread.Sleep (1000 * 10);
 
 			test(conn, 100000, 10, 2000);
 			test(conn, 100, 128000, 256000);

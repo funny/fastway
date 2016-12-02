@@ -103,12 +103,20 @@ namespace Fastway
 		public void Close ()
 		{
 			lock (this) {
+				if (this.keepAliveTimer != null)
+					this.keepAliveTimer.Stop ();
+
+				if (this.pingWatchTimer != null)
+					this.pingWatchTimer.Stop ();
+				
 				this.closed = true;
+
 				foreach (KeyValuePair<uint, Conn> item in connections) {
 					lock (item.Value) {
 						item.Value.closed = true;
 					}
 				}
+
 				this.s.Close ();
 			}
 		}
@@ -334,10 +342,8 @@ namespace Fastway
 				this.HandleCloseCmd (body);
 				break;
 			case 5:
-				if (this.pingWatchTimer != null) {
-					this.pingWatchTimer.Stop ();
-					this.keepAliveTimer.Start ();
-				}
+				this.pingWatchTimer.Stop ();
+				this.keepAliveTimer.Start ();
 				break;
 			default:
 				throw new Exception ("Unsupported Gateway Command");
@@ -458,23 +464,30 @@ namespace Fastway
 
 		private void KeepAlive(double pingInterval, double pingTimeout, Action timeoutCallback)
 		{
-			if (timeoutCallback != null) {
-				this.pingWatchTimer = new System.Timers.Timer (pingTimeout);
-				this.pingWatchTimer.Elapsed += (sender, e) => {
-					this.pingWatchTimer.Stop();
-					this.keepAliveTimer.Start ();
+			if (pingInterval <= 0)
+				return;
+
+			if (pingTimeout <= 0)
+				throw new ArgumentException ("pingTimeout <= 0");
+				
+			this.pingWatchTimer = new System.Timers.Timer (pingTimeout);
+			this.pingWatchTimer.Elapsed += (sender, e) => {
+				this.pingWatchTimer.Stop();
+				this.keepAliveTimer.Start ();
+
+				if (timeoutCallback != null) {
 					timeoutCallback ();
-				};
-				this.pingWatchTimer.Stop ();
-			}
+				} else {
+					this.Close();
+				}
+			};
+			this.pingWatchTimer.Stop ();
 
 			this.keepAliveTimer = new System.Timers.Timer (pingInterval);
 			this.keepAliveTimer.Elapsed += (sender, e) => {
 				if (DateTime.Now.Subtract (LastActive).TotalMilliseconds >= pingInterval) {
-					if (timeoutCallback != null) {
-						this.keepAliveTimer.Stop ();
-						this.pingWatchTimer.Start ();
-					}
+					this.keepAliveTimer.Stop ();
+					this.pingWatchTimer.Start ();
 					Ping ();
 				}
 			};
