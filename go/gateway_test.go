@@ -20,6 +20,7 @@ var (
 	TestRecvChanSize = 6000
 	TestIdleTimeout  = time.Second * 2
 	TestPingInterval = time.Second
+	TestPingTimeout  = time.Second
 	TestAuthKey      = "123"
 	TestServerID     = uint32(123)
 )
@@ -39,6 +40,7 @@ var TestEndPointCfg = EndPointCfg{
 	SendChanSize: TestSendChanSize,
 	RecvChanSize: TestRecvChanSize,
 	PingInterval: TestPingInterval,
+	PingTimeout:  TestPingTimeout,
 	ServerID:     TestServerID,
 	AuthKey:      TestAuthKey,
 	MsgFormat:    &TestMsgFormat{},
