@@ -5,6 +5,8 @@ using System.Collections.Generic;
 
 namespace Fastway
 {
+	public delegate bool PingTimeoutAction();
+
 	public class Conn
 	{
 		public static readonly byte[] NoMsg = new byte[0];
@@ -88,7 +90,7 @@ namespace Fastway
 		private Dictionary<uint /* remote id */, List<Conn>> dialWait;
 		private Dictionary<uint /* conn id */, Conn> connections;
 
-		public EndPoint (Stream s, double pingInterval, double pingTimeout, Action timeoutCallback)
+		public EndPoint (Stream s, double pingInterval, double pingTimeout, PingTimeoutAction timeoutCallback)
 		{
 			this.s = s;
 			this.headBuf = new byte[8];
@@ -462,7 +464,7 @@ namespace Fastway
 			this.TrySend (buf, buf.Length);
 		}
 
-		private void KeepAlive(double pingInterval, double pingTimeout, Action timeoutCallback)
+		private void KeepAlive(double pingInterval, double pingTimeout, PingTimeoutAction timeoutCallback)
 		{
 			if (pingInterval <= 0)
 				return;
@@ -472,11 +474,9 @@ namespace Fastway
 				
 			this.pingWatchTimer = new System.Timers.Timer (pingTimeout);
 			this.pingWatchTimer.Elapsed += (sender, e) => {
-				this.pingWatchTimer.Stop();
-				this.keepAliveTimer.Start ();
-
-				if (timeoutCallback != null) {
-					timeoutCallback ();
+				if (timeoutCallback != null && timeoutCallback ()) {
+					this.pingWatchTimer.Stop();
+					this.keepAliveTimer.Start ();
 				} else {
 					this.Close();
 				}
