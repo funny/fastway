@@ -93,7 +93,8 @@ type virtualCodec struct {
 	physicalConn *link.Session
 	connID       uint32
 	recvChan     chan []byte
-	closeOnce    sync.Once
+	closeMutex   sync.Mutex
+	closed       bool
 	lastActive   *int64
 	format       MsgFormat
 }
@@ -107,6 +108,20 @@ func (p *protocol) newVirtualCodec(physicalConn *link.Session, connID uint32, re
 		lastActive:   lastActive,
 		format:       format,
 	}
+}
+
+func (c *virtualCodec) forward(buf []byte) bool {
+	c.closeMutex.Lock()
+	defer c.closeMutex.Unlock()
+	if c.closed {
+		return false
+	}
+	select {
+	case c.recvChan <- buf:
+		return true
+	default:
+	}
+	return false
 }
 
 func (c *virtualCodec) Receive() (interface{}, error) {
@@ -140,10 +155,13 @@ func (c *virtualCodec) Send(msg interface{}) error {
 }
 
 func (c *virtualCodec) Close() error {
-	c.closeOnce.Do(func() {
+	c.closeMutex.Lock()
+	if !c.closed {
+		c.closed = true
 		close(c.recvChan)
 		c.send(c.physicalConn, c.encodeCloseCmd(c.connID))
-	})
+	}
+	c.closeMutex.Unlock()
 	for buf := range c.recvChan {
 		c.free(buf)
 	}
