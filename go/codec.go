@@ -110,18 +110,22 @@ func (p *protocol) newVirtualCodec(physicalConn *link.Session, connID uint32, re
 	}
 }
 
-func (c *virtualCodec) forward(buf []byte) bool {
+func (c *virtualCodec) forward(buf []byte) {
 	c.closeMutex.Lock()
-	defer c.closeMutex.Unlock()
 	if c.closed {
-		return false
+		c.closeMutex.Unlock()
+		c.free(buf)
+		return
 	}
 	select {
 	case c.recvChan <- buf:
-		return true
+		c.closeMutex.Unlock()
+		return
 	default:
+		c.closeMutex.Unlock()
+		c.Close()
+		c.free(buf)
 	}
-	return false
 }
 
 func (c *virtualCodec) Receive() (interface{}, error) {
@@ -162,6 +166,7 @@ func (c *virtualCodec) Close() error {
 		c.send(c.physicalConn, c.encodeCloseCmd(c.connID))
 	}
 	c.closeMutex.Unlock()
+
 	for buf := range c.recvChan {
 		c.free(buf)
 	}

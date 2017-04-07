@@ -255,13 +255,11 @@ func (p *EndPoint) loop() {
 
 		vconn := p.virtualConns.Get(connID)
 		if vconn != nil {
-			if vconn.Codec().(*virtualCodec).forward(buf) {
-				continue
-			}
-			vconn.Close()
+			vconn.Codec().(*virtualCodec).forward(buf)
+		} else {
+			p.free(buf)
+			p.send(p.session, p.encodeCloseCmd(connID))
 		}
-		p.free(buf)
-		p.send(p.session, p.encodeCloseCmd(connID))
 	}
 }
 
