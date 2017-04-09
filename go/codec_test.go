@@ -171,3 +171,23 @@ func Test_BadVirtualCodec(t *testing.T) {
 	vcodec.recvChan <- bigMsg
 	vcodec.Close()
 }
+
+func Test_VirtualCodecReceivcBlock(t *testing.T) {
+	conn, err := net.Dial("tcp", TestAddr)
+	utest.IsNilNow(t, err)
+	defer conn.Close()
+
+	codec := TestProto.newCodec(0, conn, 1024)
+	pconn := link.NewSession(codec, 1000)
+
+	var lastActive int64
+	recvChanSize := 2
+	vcodec := TestProto.newVirtualCodec(pconn, 123, recvChanSize, &lastActive, &TestMsgFormat{})
+	buf := make([]byte, 100)
+	for i := 0; i <= recvChanSize; i++ {
+		vcodec.forward(buf)
+	}
+	vcodec.closeMutex.Lock()
+	defer vcodec.closeMutex.Unlock()
+	utest.Assert(t, vcodec.closed)
+}
