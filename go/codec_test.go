@@ -84,7 +84,7 @@ func Test_Codec(t *testing.T) {
 		buffer2 := make([]byte, len(buffer1))
 		copy(buffer2, buffer1)
 
-		codec.Send(&buffer1)
+		codec.Send(buffer1)
 
 		buffer3, err := codec.Receive()
 		utest.IsNilNow(t, err)

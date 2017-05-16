@@ -27,10 +27,17 @@ func (p *protocol) free(msg []byte) {
 	p.pool.Free(msg)
 }
 
-func (p *protocol) send(session *link.Session, msg []byte) error {
-	err := session.Send(&msg)
+func (p *protocol) sendv(session *link.Session, buffers [][]byte) error {
+	err := session.Send(buffers)
 	if err != nil {
-		p.free(msg)
+		session.Close()
+	}
+	return err
+}
+
+func (p *protocol) send(session *link.Session, msg []byte) error {
+	err := session.Send(msg)
+	if err != nil {
 		session.Close()
 	}
 	return err

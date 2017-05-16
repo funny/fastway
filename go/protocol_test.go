@@ -20,7 +20,7 @@ func Test_DialCmd(t *testing.T) {
 		remoteID1 := rand.Uint32()
 		msg1 := TestProto.encodeDialCmd(remoteID1)
 
-		err := codec.Send(&msg1)
+		err := codec.Send(msg1)
 		utest.IsNilNow(t, err)
 
 		msg2, err := codec.Receive()
@@ -47,7 +47,7 @@ func Test_AcceptCmd(t *testing.T) {
 		remoteID1 := rand.Uint32()
 		msg1 := TestProto.encodeAcceptCmd(connID1, remoteID1)
 
-		err := codec.Send(&msg1)
+		err := codec.Send(msg1)
 		utest.IsNilNow(t, err)
 
 		msg2, err := codec.Receive()
@@ -74,7 +74,7 @@ func Test_RefuseCmd(t *testing.T) {
 		remoteID1 := rand.Uint32()
 		msg1 := TestProto.encodeRefuseCmd(remoteID1)
 
-		err := codec.Send(&msg1)
+		err := codec.Send(msg1)
 		utest.IsNilNow(t, err)
 
 		msg2, err := codec.Receive()
@@ -101,7 +101,7 @@ func Test_ConnectCmd(t *testing.T) {
 		remoteID1 := rand.Uint32()
 		msg1 := TestProto.encodeConnectCmd(connID1, remoteID1)
 
-		err := codec.Send(&msg1)
+		err := codec.Send(msg1)
 		utest.IsNilNow(t, err)
 
 		msg2, err := codec.Receive()
@@ -128,7 +128,7 @@ func Test_CloseCmd(t *testing.T) {
 		conndID1 := rand.Uint32()
 		msg1 := TestProto.encodeCloseCmd(conndID1)
 
-		err := codec.Send(&msg1)
+		err := codec.Send(msg1)
 		utest.IsNilNow(t, err)
 
 		msg2, err := codec.Receive()
@@ -153,7 +153,7 @@ func Test_PingCmd(t *testing.T) {
 	for i := 0; i < 10000; i++ {
 		msg1 := TestProto.encodePingCmd()
 
-		err := codec.Send(&msg1)
+		err := codec.Send(msg1)
 		utest.IsNilNow(t, err)
 
 		msg2, err := codec.Receive()
