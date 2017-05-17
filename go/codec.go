@@ -16,8 +16,6 @@ import (
 var _ = (link.Codec)((*codec)(nil))
 var _ = (link.Codec)((*virtualCodec)(nil))
 
-//var _ = (link.ClearSendChan)((*codec)(nil))
-
 // SizeofLen is the size of `Length` field.
 const SizeofLen = 4
 
@@ -78,13 +76,6 @@ func (c *codec) Close() error {
 	return c.conn.Close()
 }
 
-// ClearSendChan implements link/ClearSendChan interface.
-//func (c *codec) ClearSendChan(sendChan <-chan interface{}) {
-//	for msg := range sendChan {
-//		c.free(*(msg.(*[]byte)))
-//	}
-//}
-
 // ===========================================================================
 
 type MsgFormat interface {
@@ -133,7 +124,7 @@ func (c *virtualCodec) Send(msg interface{}) error {
 	}
 
 	buffers := make([][]byte, 2)
-	headBuf := c.alloc(SizeofLen + cmdIDSize)
+	headBuf := make(byte[], SizeofLen + cmdIDSize)
 	binary.LittleEndian.PutUint32(headBuf, uint32(cmdIDSize+len(msg2)))
 	binary.LittleEndian.PutUint32(headBuf[cmdConnID:], c.connID)
 	buffers[0] = headBuf
