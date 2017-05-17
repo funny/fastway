@@ -15,7 +15,6 @@ import (
 
 var _ = (link.Codec)((*codec)(nil))
 var _ = (link.Codec)((*virtualCodec)(nil))
-var _ = (link.ClearSendChan)((*codec)(nil))
 
 // SizeofLen is the size of `Length` field.
 const SizeofLen = 4
@@ -63,22 +62,18 @@ func (c *codec) Receive() (interface{}, error) {
 
 // Send implements link/Codec.Send() method.
 func (c *codec) Send(msg interface{}) error {
-	buffer := *(msg.(*[]byte))
-	_, err := c.conn.Write(buffer)
-	c.free(buffer)
+	if buffers, ok := (msg.([][]byte)); ok {
+		netBuf := net.Buffers(buffers)
+		_, err := netBuf.WriteTo(c.conn)
+		return err
+	}
+	_, err := c.conn.Write(msg.([]byte))
 	return err
 }
 
 // Close implements link/Codec.Close() method.
 func (c *codec) Close() error {
 	return c.conn.Close()
-}
-
-// ClearSendChan implements link/ClearSendChan interface.
-func (c *codec) ClearSendChan(sendChan <-chan interface{}) {
-	for msg := range sendChan {
-		c.free(*(msg.(*[]byte)))
-	}
 }
 
 // ===========================================================================
@@ -128,11 +123,13 @@ func (c *virtualCodec) Send(msg interface{}) error {
 		return ErrTooLargePacket
 	}
 
-	buf := c.alloc(SizeofLen + cmdIDSize + len(msg2))
-	copy(buf[cmdConnID+cmdIDSize:], msg2)
-	binary.LittleEndian.PutUint32(buf, uint32(cmdIDSize+len(msg2)))
-	binary.LittleEndian.PutUint32(buf[cmdConnID:], c.connID)
-	err = c.send(c.physicalConn, buf)
+	buffers := make([][]byte, 2)
+	headBuf := make([]byte, SizeofLen+cmdIDSize)
+	binary.LittleEndian.PutUint32(headBuf, uint32(cmdIDSize+len(msg2)))
+	binary.LittleEndian.PutUint32(headBuf[cmdConnID:], c.connID)
+	buffers[0] = headBuf
+	buffers[1] = msg2
+	err = c.sendv(c.physicalConn, buffers)
 	if err != nil {
 		atomic.StoreInt64(c.lastActive, time.Now().Unix())
 	}
