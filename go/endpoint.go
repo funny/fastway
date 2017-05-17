@@ -255,15 +255,11 @@ func (p *EndPoint) loop() {
 
 		vconn := p.virtualConns.Get(connID)
 		if vconn != nil {
-			select {
-			case vconn.Codec().(*virtualCodec).recvChan <- buf:
-				continue
-			default:
-				vconn.Close()
-			}
+			vconn.Codec().(*virtualCodec).forward(buf)
+		} else {
+			p.free(buf)
+			p.send(p.session, p.encodeCloseCmd(connID))
 		}
-		p.free(buf)
-		p.send(p.session, p.encodeCloseCmd(connID))
 	}
 }
 

@@ -353,3 +353,48 @@ func Test_BadEndPoint(t *testing.T) {
 	_, err = DialServer("tcp", lsn3.Addr().String(), TestEndPointCfg)
 	utest.NotNilNow(t, err)
 }
+
+func Test_VConnSimultaneouslyCloseAndReceive(t *testing.T) {
+	lsn1, err := net.Listen("tcp", "127.0.0.1:0")
+	utest.IsNilNow(t, err)
+	defer lsn1.Close()
+
+	lsn2, err := net.Listen("tcp", "127.0.0.1:0")
+	utest.IsNilNow(t, err)
+	defer lsn2.Close()
+
+	gw := NewGateway(TestPool, TestMaxPacket)
+
+	go gw.ServeClients(lsn1, TestGatewayCfg)
+	go gw.ServeServers(lsn2, TestGatewayCfg)
+
+	time.Sleep(time.Second)
+
+	server, err := DialServer("tcp", lsn2.Addr().String(), TestEndPointCfg)
+	utest.IsNilNow(t, err)
+	time.Sleep(time.Second)
+	go func() {
+		for {
+			vconn, err := server.Accept()
+			if err != nil {
+				return
+			}
+			runtime.Gosched()
+			vconn.Close()
+			runtime.Gosched()
+		}
+	}()
+	time.Sleep(time.Second)
+	payload := make([]byte, 10)
+	for i := 0; i < 10000; i++ {
+		client, err := DialClient("tcp", lsn1.Addr().String(), TestEndPointCfg)
+		utest.IsNilNow(t, err)
+		vconn, err := client.Dial(123)
+		utest.IsNilNow(t, err)
+		runtime.Gosched()
+		vconn.Send(payload)
+		runtime.Gosched()
+		client.Close()
+	}
+	gw.Stop()
+}
