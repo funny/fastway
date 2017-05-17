@@ -124,7 +124,7 @@ func (c *virtualCodec) Send(msg interface{}) error {
 	}
 
 	buffers := make([][]byte, 2)
-	headBuf := make(byte[], SizeofLen + cmdIDSize)
+	headBuf := make([]byte, SizeofLen+cmdIDSize)
 	binary.LittleEndian.PutUint32(headBuf, uint32(cmdIDSize+len(msg2)))
 	binary.LittleEndian.PutUint32(headBuf[cmdConnID:], c.connID)
 	buffers[0] = headBuf
